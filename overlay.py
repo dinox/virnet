@@ -27,7 +27,7 @@ def list_members(data):
             "members" : members}
 def ping(data):
     global last_ping
-    last_ping = time.clock()
+    last_ping = time.time()
     return {"command"   : "ping_reply",
             "payload"   : data["payload"]}
 
@@ -52,16 +52,22 @@ def heartbeat():
     global pings, members
     member_lock.acquire()
     for nodeID, node in copy.deepcopy(members).items():
-        if (nodeID == my_id):
+        if nodeID == my_id:
             continue
         ping_message = {"command" : "ping", "payload" : ""}
-        try:
-            begin = time.clock()
-            print(send_message(node["ip"], node["port"], ping_message))
-            end = time.clock()
-            pings[nodeID] = end-begin
-            print("Pinged node %s in %.2f ms" % (nodeID, pings[nodeID]*1000))
-        except ConnectionRefusedError:
+        successful = False
+        count = 0
+        while not successful and count < 3:
+            print("Start ping {0}, {1}, {2}", node["ip"], node["port"], nodeID)
+            time = ping_udp(node["ip"], node["port"], nodeID)
+            if time >= 0:
+                pings[nodeID] = time
+                print("Pinged node %s in %.2f ms" % (nodeID, pings[nodeID]*1000))
+                successful = True
+            else:
+                count = count + 1
+                print("Ping failed")
+        if not successful:
             del members[nodeID]
     send_new_memberlist()
     member_lock.release()
@@ -104,7 +110,7 @@ def connect_to_network():
             coordinator = seed
             members = result["members"]
             my_id = result["your_id"]
-            last_ping = time.clock()
+            last_ping = time.time()
             return
         except ConnectionRefusedError:
             print("could not connect to %s:%s " % (seed["ip"], seed["port"]))
@@ -114,6 +120,8 @@ def connect_to_network():
     coordinator = {"ip" : my_ip, "port" : my_port}
     members = {0:coordinator}
     print("I am now coordinator")
+    
+# TCP serversocket, answers to messages coordinating the overlay
 
 class MyTCPServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
@@ -127,6 +135,42 @@ class MyTCPServerHandler(socketserver.BaseRequestHandler):
             self.request.sendall(bytes(json.dumps(reply), 'UTF-8'))
         except Exception as e:
             print("Exception wile receiving message: ", e)
+            
+# UDP serversocket, answers to ping requests
+
+class MyUDPServer(socketserver.ThreadingUDPServer):
+    allow_reuse_address = True
+
+class MyUDPServerHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        while (True):
+            try:
+                data = self.request[0]
+                socket = self.request[1]
+                print("Received ping from {0}.".format(self.client_address[0]))
+                socket.sendto(data, self.client_address)
+            except Exception as e:
+                print("Exception while receiving message: ", e)
+
+# UDP ping request
+                
+def ping_udp(host, port, host_id):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        data = str(host_id)
+        begin = time.time()
+        sock.sendto(data.encode(), (host, port+1))
+        received = sock.recv(1024).decode()
+        end = time.time()
+        if received == data:
+            return end-begin
+        else:
+            return -1
+    except Exception as e:
+        print("Exception while sending ping: ", e)
+        return -1                
+                
+# main function, initialize overlay node                
 
 def main(argv):
     global my_ip, my_port, seeds, last_ping
@@ -147,8 +191,13 @@ def main(argv):
         else:
             print('overlay.py -ip <node ip>')
             sys.exit(2)
+    # listen for UPD messages for ping request
+    pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
+    threading.Thread(target=pingServer.serve_forever).start()
+    # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
     seeds = json.loads(f.read())
+    # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
     server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
     threading.Thread(target=server.serve_forever).start()
@@ -159,7 +208,7 @@ def main(argv):
                 heartbeat()
                 time.sleep(10)
             if not is_coordinator:
-                if time.clock() > last_ping + 25/3600.0:
+                if time.time() > last_ping + 25:
                     print("coordinator has died!")
                     os._exit(0)
                 time.sleep(1)
