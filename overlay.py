@@ -139,18 +139,20 @@ class MyTCPServerHandler(socketserver.BaseRequestHandler):
 # UDP serversocket, answers to ping requests
 
 class MyUDPServer(socketserver.ThreadingUDPServer):
-    allow_reuse_address = True
+    allow_reuse_address = False
 
 class MyUDPServerHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        while (True):
-            try:
-                data = self.request[0]
-                socket = self.request[1]
-                print("Received ping from {0}.".format(self.client_address[0]))
-                socket.sendto(data, self.client_address)
-            except Exception as e:
-                print("Exception while receiving message: ", e)
+        global last_ping
+        try:
+            data = self.request[0].strip()
+            socket = self.request[1]
+            print("Received ping from {0}.".format(self.client_address[0]))
+            socket.sendto(data, self.client_address)
+            #TODO: check if sender is the coordinator
+            last_ping = time.time()
+        except Exception as e:
+            print("Exception while receiving message: ", e)
 
 # UDP ping request
                 
