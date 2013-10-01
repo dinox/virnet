@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-import socketserver, socket, json, getopt, sys, threading, time, os, \
+#!/usr/bin/env python2
+import SocketServer, socket, json, getopt, sys, threading, time, os, \
         copy
 
 is_coordinator = False
@@ -77,8 +77,8 @@ def heartbeat():
 def send_message(ip, port, message):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
-    s.send(bytes(json.dumps(message), 'UTF-8'))
-    return json.loads(s.recv(1024).decode('UTF-8'))
+    s.send(json.dumps(message))
+    return json.loads(s.recv(1024))
 
 def send_new_memberlist():
     global members, my_id
@@ -112,7 +112,7 @@ def connect_to_network():
             my_id = result["your_id"]
             last_ping = time.time()
             return
-        except ConnectionRefusedError:
+        except socket.error:
             print("could not connect to %s:%s " % (seed["ip"], seed["port"]))
             pass
     is_coordinator = True
@@ -121,27 +121,33 @@ def connect_to_network():
     members = {0:coordinator}
     print("I am now coordinator")
     
+# Logging helper functions
+
+def log_members_client():
+    f = open("overlay.log", "a")
+
+
 # TCP serversocket, answers to messages coordinating the overlay
 
-class MyTCPServer(socketserver.ThreadingTCPServer):
+class MyTCPServer(SocketServer.ThreadingTCPServer):
     allow_reuse_address = True
 
-class MyTCPServerHandler(socketserver.BaseRequestHandler):
+class MyTCPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         try:
-            data = json.loads(self.request.recv(1024).decode('UTF-8').strip())
+	    data = json.loads(self.request.recv(1024).strip())
             print(data)
             reply = commands[data["command"]](data)
-            self.request.sendall(bytes(json.dumps(reply), 'UTF-8'))
-        except Exception as e:
-            print("Exception wile receiving message: ", e)
+            self.request.sendall(json.dumps(reply))
+	except Exception:
+            print("Exception wile receiving message: ")
             
 # UDP serversocket, answers to ping requests
 
-class MyUDPServer(socketserver.ThreadingUDPServer):
+class MyUDPServer(SocketServer.ThreadingUDPServer):
     allow_reuse_address = False
 
-class MyUDPServerHandler(socketserver.BaseRequestHandler):
+class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         global last_ping
         try:
@@ -151,8 +157,8 @@ class MyUDPServerHandler(socketserver.BaseRequestHandler):
             socket.sendto(data, self.client_address)
             #TODO: check if sender is the coordinator
             last_ping = time.time()
-        except Exception as e:
-            print("Exception while receiving message: ", e)
+        except Exception:
+            print("Exception while receiving message: ")
 
 # UDP ping request
                 
@@ -168,8 +174,8 @@ def ping_udp(host, port, host_id):
             return end-begin
         else:
             return -1
-    except Exception as e:
-        print("Exception while sending ping: ", e)
+    except Exception:
+        print("Exception while sending ping: ")
         return -1                
                 
 # main function, initialize overlay node                
