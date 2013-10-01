@@ -1,6 +1,11 @@
-#!/usr/bin/env python2
-import SocketServer, socket, json, getopt, sys, threading, time, os, \
+#!/usr/bin/env python
+import SocketServer, socket, getopt, sys, threading, time, os, \
         copy
+
+try:
+    import json
+except ImportError:
+    import simplejson as json 
 
 is_coordinator = False
 member_lock = threading.Lock()
