@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import SocketServer, socket, getopt, sys, threading, time, os, \
         copy, pickle
 
@@ -36,6 +36,7 @@ def ping_command(data):
 
 def memberlist_update_command(data):
     members = data["members"]
+    log_membership()
     return {"command" : "ok"}
 
 commands = {"join" : join_command,
@@ -47,13 +48,14 @@ commands = {"join" : join_command,
 def addMember(nodeAddress):
     global next_id
     members[next_id] = nodeAddress
+    log_event(next_id, "JOIN")
     next_id += 1
     return next_id - 1
 #def listMembers():
 
-def removeMember(nodeID):
+def removeMember(nodeID, event):
     del members[nodeID]
-    #TODO: log leave event
+    log_event(nodeID, event)
     send_new_memberlist()
 
 def ping(host, port, host_id):
@@ -69,8 +71,9 @@ def ping(host, port, host_id):
             return end-begin
         else:
             return -1
-    except Exception:
-        print("Exception while sending ping: ")
+    #TODO: catch timeout exception, don't print!
+    except Exception, e:
+        print("Exception while sending ping: %s" % e)
         return -1
 
 # MEMBER functions
@@ -100,9 +103,9 @@ def heartbeat():
                 count = count + 1
                 print("Ping failed")
         if not successful:
-            removeMember(nodeID)
+            removeMember(nodeID, "FAIL")
     send_new_memberlist()
-    log_members()
+    log_membership()
 
 # Measure latency
 def measure_latency():
@@ -221,8 +224,8 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             print(data)
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
-        except Exception as e:
-            print ("Exception while receiving message: %s" % (e))
+        except Exception, e:
+            print ("Exception while receiving message: %s" % e)
             
 # UDP serversocket, answers to ping requests
 
@@ -235,12 +238,11 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
-            print("Received ping from {0}.".format(self.client_address[0]))
             socket.sendto(str(my_port).encode(), self.client_address)
             if str(data) == str(coordinator["id"]):
                 last_ping = time.time()
-        except Exception:
-            print("Exception while receiving message: ")
+        except Exception, e:
+            print("Exception while receiving message: %s" % e)
 
 # Log functions
 
@@ -250,15 +252,54 @@ def initialize_log_files():
         f.write("*** Start node ***\n")
         f.close()
 
-def log_members():
-    global is_coordinator, members
-    f = open("overlay.log", "a")
-    f.write(str(time.time()) + "\n")
-    tab = "    "
+def log_membership():
+    global is_coordinator
+    filename = "overlay.log"
+    log_timestamp(filename)
     if not is_coordinator:
-	f.write(tab + "[COORDINATOR]: \n")
-    f.write(tab + "[MEMBERS]: ")
-    f.write("\n")
+        log_coordinator(filename)
+    log_members(filename)
+
+def log_event(nodeID, event):
+    filename = "overlay.log"
+    log_timestamp(filename)
+    tab = "    "
+    msg = tab + "[EVENT " + event + "]: node" + str(nodeID)
+    f = open(filename, "a")
+    f.write(msg + "\n")
+    print(msg)
+    f.close()
+    log_members(filename)
+
+def log_timestamp(filename):
+    f = open(filename, "a")
+    msg = str(time.time()) + ":"
+    f.write(msg + "\n")
+    print(msg)
+    f.close()
+
+def log_coordinator(filename):
+    global coordinator
+    f = open(filename, "a")
+    tab = "    "
+    msg = tab + "[COORDINATOR]: node" + str(coordinator["id"])
+    f.write(msg + "\n")
+    print(msg)
+    f.close()
+
+def log_members(filename):
+    global is_coordinator, members
+    f = open(filename, "a")
+    tab = "    "
+    msg = tab + "[MEMBERS]: ["
+    is_empty = True
+    for nodeID, node in copy.deepcopy(members).items():
+        if not is_empty:
+            msg = msg + ", "
+        msg = msg + "node" + str(nodeID)
+    msg = msg + "]"
+    f.write(msg + "\n ")
+    print(msg)
     f.close()
 
 def log_latency(nodeID, new_latency):
