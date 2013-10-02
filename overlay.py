@@ -130,15 +130,18 @@ def connect_to_network():
 
 class MyTCPServer(SocketServer.ThreadingTCPServer):
     allow_reuse_address = True
+    def server_bind(self):
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
 
 class MyTCPServerHandler(SocketServer.BaseRequestHandler):
-    def handle(self):
+   def handle(self):
         try:
-	    data = pickle.loads(self.request.recv(1024).strip())
+            data = pickle.loads(self.request.recv(1024).strip())
             print(data)
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
-	except Exception:
+        except Exception:
             print("Exception wile receiving message: ")
             
 # UDP serversocket, answers to ping requests
