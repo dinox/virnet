@@ -9,6 +9,7 @@ my_ip = '127.0.0.1'
 my_port = 13337
 pings = dict()
 last_ping = 0
+last_latency_measurement = 0
 
 # COMMANDS
 
@@ -55,7 +56,7 @@ def removeMember(nodeID):
     #TODO: log leave event
     send_new_memberlist()
 
-def ping_udp(host, port, host_id):
+def ping(host, port, host_id):
     global my_id
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -74,9 +75,11 @@ def ping_udp(host, port, host_id):
 
 # MEMBER functions
 
-#def join():
+def join():
+    pass
 
-#def leave():
+def leave():
+    pass
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -88,7 +91,7 @@ def heartbeat():
         count = 0
         while not successful and count < 3:
             print("Start ping {0}, {1}, {2}", node["ip"], node["port"], nodeID)
-            time = ping_udp(node["ip"], node["port"], nodeID)
+            time = ping(node["ip"], node["port"], nodeID)
             if time >= 0:
                 pings[nodeID] = time
                 print("Pinged node %s in %.2f ms" % (nodeID, pings[nodeID]*1000))
@@ -104,18 +107,24 @@ def heartbeat():
 # Measure latency
 def measure_latency():
     global pings, members, is_coordinator
-    for nodeID, node in copy.deepcopy(members).items():
-        if nodeID == my_id:
-            continue
-        time = ping_udp(node["ip"], node["port"], nodeID)
-        if time >= 0:
-            cal_avg(nodeID, time)
-            log_latency(nodeID, time)
+    try:
+        for nodeID, node in copy.deepcopy(members).items():
+            if nodeID == my_id:
+                continue
+            time = ping(node["ip"], node["port"], nodeID)
+            if time >= 0:
+                cal_avg(nodeID, time)
+                log_latency(nodeID, time)
+            else:
+                print("ping in measure_latency failed")
+    except:
+        print("exception in measure_latency")
 
 def cal_avg(nodeID, new_latency):
     global pings
     a = 0.9
-    pings[nodeID] = a*pings[nodeID] + (1-a)*new_latency
+    new_avg = a*float(pings[nodeID]) + (1-a)*new_latency
+    pings[nodeID] = new_avg
 
 def reelect_coordinator():
     global coordinator, is_coordinator, my_ip, my_port, my_id, members, \
@@ -236,9 +245,10 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
 # Log functions
 
 def initialize_log_files():
-    f = open("overlay.log", "a")
-    f.write("*** Start node ***\n")
-    f.close()
+    for filename in ("overlay.log", "latency.log"):
+        f = open(filename, "a")
+        f.write("*** Start node ***\n")
+        f.close()
 
 def log_members():
     global is_coordinator, members
@@ -254,15 +264,17 @@ def log_members():
 def log_latency(nodeID, new_latency):
     global pings, my_id
     f = open("latency.log", "a")
-    f.write("["+my_id+", "+nodeID+", "+new_latency+", "+pings[nodeID]+", "\
-            +time.time()+"]")
+    msg = "["+str(my_id)+", "+str(nodeID)+", "+str(new_latency)+\
+            ", "+str(pings[nodeID])+", "+str(time.time())+"]"
+    f.write(msg+"\n")
     f.close()
+    print(msg)
 
 
 # main function, initialize overlay node                
 
 def main(argv):
-    global my_ip, my_port, seeds, last_ping
+    global my_ip, my_port, seeds, last_ping, last_latency_measurement
     socket.setdefaulttimeout(2)
     try:
         opts, args = getopt.getopt(argv,"hi:p:",["ip=", "port="])
@@ -295,10 +307,13 @@ def main(argv):
     threading.Thread(target=server.serve_forever).start()
     try:
         while (True):
+            if time.time() > last_latency_measurement + 3:
+                measure_latency()
+                last_latency_measurement = time.time()
             if is_coordinator:
                 print("Heartbeat")
                 heartbeat()
-                time.sleep(10)
+                time.sleep(5)
             if not is_coordinator:
                 if time.time() > last_ping + 25:
                     print("coordinator has died!")    
@@ -308,6 +323,7 @@ def main(argv):
 # Shutdown servers and exit
         server.shutdown()
         pingServer.shutdown()
+        leave()
         os._exit(0)
 if __name__ == "__main__":
     main(sys.argv[1:])
