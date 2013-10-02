@@ -56,7 +56,6 @@ def addMember(nodeAddress):
 
 def heartbeat():
     global pings, members
-    member_lock.acquire()
     for nodeID, node in copy.deepcopy(members).items():
         if nodeID == my_id:
             continue
@@ -76,7 +75,6 @@ def heartbeat():
         if not successful:
             del members[nodeID]
     send_new_memberlist()
-    member_lock.release()
     log_members()
 
 # HELPER METHODS
@@ -147,7 +145,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
 # UDP serversocket, answers to ping requests
 
 class MyUDPServer(SocketServer.ThreadingUDPServer):
-    allow_reuse_address = False
+    allow_reuse_address = True
 
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -183,8 +181,10 @@ def ping_udp(host, port, host_id):
 
 # Log functions
 
-def delete_log_files():
-    os.remove("overlay.log")
+def initialize_log_files():
+    f = open("overlay.log", "a")
+    f.write("*** Start node ***\n")
+    f.close()
 
 def log_members():
     global is_coordinator, members
@@ -220,7 +220,7 @@ def main(argv):
             print('overlay.py -ip <node ip>')
             sys.exit(2)
     # delete previous log files
-    delete_log_files()
+    initialize_log_files()
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
     threading.Thread(target=pingServer.serve_forever).start()
