@@ -80,14 +80,12 @@ def ping_udp(host, port, host_id):
 
 #def leave():
 
-# Heartbeat function for latency and coordinator
-
+# Heartbeat function (check if all members are alive)
 def heartbeat():
     global pings, members, is_coordinator
     for nodeID, node in copy.deepcopy(members).items():
         if nodeID == my_id:
             continue
-        ping_message = {"command" : "ping", "payload" : ""}
         successful = False
         count = 0
         while not successful and count < 3:
@@ -100,10 +98,26 @@ def heartbeat():
             else:
                 count = count + 1
                 print("Ping failed")
-        if not successful and is_coordinator:
+        if not successful:
             removeMember(nodeID)
     send_new_memberlist()
     log_members()
+
+# Measure latency
+def measure_latency():
+    global pings, members, is_coordinator
+    for nodeID, node in copy.deepcopy(members).items():
+        if nodeID == my_id:
+            continue
+        time = ping_udp(node["ip"], node["port"], nodeID)
+        if time >= 0:
+            cal_avg(nodeID, time)
+            log_latency(nodeID, time)
+
+def cal_avg(nodeID, new_latency):
+    global pings
+    a = 0.9
+    pings[nodeID] = a*pings[nodeID] + (1-a)*new_latency
 
 def reelect_coordinator():
     print "should now reelect a coordinator"
@@ -207,6 +221,13 @@ def log_members():
 	f.write(tab + "[COORDINATOR]: \n")
     f.write(tab + "[MEMBERS]: ")
     f.write("\n")
+    f.close()
+
+def log_latency(nodeID, new_latency):
+    global pings, my_id
+    f = open("latency.log", "a")
+    f.write("["+my_id+", "+nodeID+", "+new_latency+", "+pings[nodeID]+", "\
+            +time.time()+"]")
     f.close()
 
 
