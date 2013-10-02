@@ -41,7 +41,7 @@ commands = {"join" : join_command,
             "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command}
 
-# PROBLEM SPECIFIC METHODS
+# COORDINATOR functions
 
 def addMember(nodeAddress):
     member_lock.acquire()
@@ -50,12 +50,42 @@ def addMember(nodeAddress):
     member_lock.release()
     return nbr_of_members
 
+#def listMembers():
+
+def removeMember(nodeID):
+    del members[nodeID]
+    #TODO: log leave event
+    send_new_memberlist()
+
+def ping_udp(host, port, host_id):
+    global my_id
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        data = str(my_id)
+        begin = time.time()
+        sock.sendto(data.encode(), (host, port+1))
+        received = sock.recv(1024).decode()
+        end = time.time()
+        if str(received) == str(port):
+            return end-begin
+        else:
+            return -1
+    except Exception:
+        print("Exception while sending ping: ")
+        return -1
+
+# MEMBER functions
+
+#def join():
+
+#def leave():
+
+# Heartbeat function (check if all members are alive)
 def heartbeat():
-    global pings, members
+    global pings, members, is_coordinator
     for nodeID, node in copy.deepcopy(members).items():
         if nodeID == my_id:
             continue
-        ping_message = {"command" : "ping", "payload" : ""}
         successful = False
         count = 0
         while not successful and count < 3:
@@ -69,9 +99,25 @@ def heartbeat():
                 count = count + 1
                 print("Ping failed")
         if not successful:
-            del members[nodeID]
+            removeMember(nodeID)
     send_new_memberlist()
     log_members()
+
+# Measure latency
+def measure_latency():
+    global pings, members, is_coordinator
+    for nodeID, node in copy.deepcopy(members).items():
+        if nodeID == my_id:
+            continue
+        time = ping_udp(node["ip"], node["port"], nodeID)
+        if time >= 0:
+            cal_avg(nodeID, time)
+            log_latency(nodeID, time)
+
+def cal_avg(nodeID, new_latency):
+    global pings
+    a = 0.9
+    pings[nodeID] = a*pings[nodeID] + (1-a)*new_latency
 
 def reelect_coordinator():
     print "should now reelect a coordinator"
@@ -162,25 +208,6 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
         except Exception:
             print("Exception while receiving message: ")
 
-# UDP ping request
-                
-def ping_udp(host, port, host_id):
-    global my_id
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        data = str(my_id)
-        begin = time.time()
-        sock.sendto(data.encode(), (host, port+1))
-        received = sock.recv(1024).decode()
-        end = time.time()
-        if str(received) == str(port):
-            return end-begin
-        else:
-            return -1
-    except Exception:
-        print("Exception while sending ping: ")
-        return -1
-
 # Log functions
 
 def initialize_log_files():
@@ -197,6 +224,13 @@ def log_members():
 	f.write(tab + "[COORDINATOR]: \n")
     f.write(tab + "[MEMBERS]: ")
     f.write("\n")
+    f.close()
+
+def log_latency(nodeID, new_latency):
+    global pings, my_id
+    f = open("latency.log", "a")
+    f.write("["+my_id+", "+nodeID+", "+new_latency+", "+pings[nodeID]+", "\
+            +time.time()+"]")
     f.close()
 
 
