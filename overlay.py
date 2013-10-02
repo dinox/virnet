@@ -4,6 +4,7 @@ import SocketServer, socket, getopt, sys, threading, time, os, \
 
 is_coordinator = False
 member_lock = threading.Lock()
+members = dict()
 my_ip = '127.0.0.1'
 my_port = 13337
 pings = dict()
@@ -36,7 +37,7 @@ def memberlist_update_command(data):
     members = data["members"]
     return {"command" : "ok"}
 
-commands = {"bootstrap" : bootstrap_command,
+commands = {"join" : join_command,
             "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command}
 
@@ -72,6 +73,10 @@ def heartbeat():
     send_new_memberlist()
     log_members()
 
+def reelect_coordinator():
+    print "should now reelect a coordinator"
+    pass
+
 # HELPER METHODS
 
 def send_message(ip, port, message):
@@ -95,7 +100,7 @@ def send_new_memberlist():
 def connect_to_network():
     global coordinator, is_coordinator, members, my_id, my_ip, \
         my_port, seeds, last_ping
-    bootstrap_message = {"command"  : "bootstrap", "address" : 
+    bootstrap_message = {"command"  : "join", "address" : 
                          {"ip" : my_ip, "port" : my_port}}
     for seed in seeds:
         try:
@@ -118,7 +123,6 @@ def connect_to_network():
     is_coordinator = True
     my_id = 0
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
-    members = {0:coordinator}
     print("I am now coordinator")
     
 
