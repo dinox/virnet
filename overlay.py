@@ -22,6 +22,7 @@ def bootstrap(data):
     nodeID = addMember(data["address"]) 
     return {"command"   : "hello", 
             "your_id"   : nodeID,
+            "coordinator" : coordinator,
             "members"   : members}
 
 def coordinator_info(data):
@@ -76,6 +77,7 @@ def heartbeat():
             del members[nodeID]
     send_new_memberlist()
     member_lock.release()
+    log_members()
 
 # HELPER METHODS
 
@@ -112,7 +114,7 @@ def connect_to_network():
                                       bootstrap_message)
                 print("connected to overlay network")
                 print(result)
-            coordinator = seed
+            coordinator = result["coordinator"]
             members = result["members"]
             my_id = result["your_id"]
             last_ping = time.time()
@@ -122,15 +124,10 @@ def connect_to_network():
             pass
     is_coordinator = True
     my_id = 0
-    coordinator = {"ip" : my_ip, "port" : my_port}
+    coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
     members = {0:coordinator}
     print("I am now coordinator")
     
-# Logging helper functions
-
-def log_members_client():
-    f = open("overlay.log", "a")
-
 
 # TCP serversocket, answers to messages coordinating the overlay
 
@@ -154,35 +151,53 @@ class MyUDPServer(SocketServer.ThreadingUDPServer):
 
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
-        global last_ping
+        global last_ping, my_port, members, coordinator
         try:
-            data = self.request[0].strip()
+            data = self.request[0].decode().strip()
             socket = self.request[1]
             print("Received ping from {0}.".format(self.client_address[0]))
-            socket.sendto(data, self.client_address)
-            #TODO: check if sender is the coordinator
-            last_ping = time.time()
+            socket.sendto(str(my_port).encode(), self.client_address)
+            if str(data) == str(coordinator["id"]):
+                last_ping = time.time()
         except Exception:
             print("Exception while receiving message: ")
 
 # UDP ping request
                 
 def ping_udp(host, port, host_id):
+    global my_id
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        data = str(host_id)
+        data = str(my_id)
         begin = time.time()
         sock.sendto(data.encode(), (host, port+1))
         received = sock.recv(1024).decode()
         end = time.time()
-        if received == data:
+        if str(received) == str(port):
             return end-begin
         else:
             return -1
     except Exception:
         print("Exception while sending ping: ")
-        return -1                
-                
+        return -1
+
+# Log functions
+
+def delete_log_files():
+    os.remove("overlay.log")
+
+def log_members():
+    global is_coordinator, members
+    f = open("overlay.log", "a")
+    f.write(str(time.time()) + "\n")
+    tab = "    "
+    if not is_coordinator:
+	f.write(tab + "[COORDINATOR]: \n")
+    f.write(tab + "[MEMBERS]: ")
+    f.write("\n")
+    f.close()
+
+
 # main function, initialize overlay node                
 
 def main(argv):
@@ -204,12 +219,15 @@ def main(argv):
         else:
             print('overlay.py -ip <node ip>')
             sys.exit(2)
+    # delete previous log files
+    delete_log_files()
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
     threading.Thread(target=pingServer.serve_forever).start()
     # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
     seeds = json.loads(f.read())
+    f.close()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
     server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
