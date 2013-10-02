@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 import SocketServer, socket, getopt, sys, threading, time, os, \
-        copy
-
-try:
-    import json
-except ImportError:
-    import simplejson as json 
+        copy, pickle
 
 is_coordinator = False
 member_lock = threading.Lock()
@@ -16,34 +11,34 @@ last_ping = 0
 
 # COMMANDS
 
-def bootstrap(data):
+def join_command(data):
     if not is_coordinator:
-        return coordinator_info(data)
+        return coordinator_info_command(data)
     nodeID = addMember(data["address"]) 
     return {"command"   : "hello", 
             "your_id"   : nodeID,
             "coordinator" : coordinator,
             "members"   : members}
 
-def coordinator_info(data):
+def coordinator_info_command(data):
     return {"command"       : "coordinator_info",
             "coordinator"   : coordinator}
-def list_members(data):
+def list_members_command(data):
     return {"command" : "reply",
             "members" : members}
-def ping(data):
+def ping_command(data):
     global last_ping
     last_ping = time.time()
     return {"command"   : "ping_reply",
             "payload"   : data["payload"]}
 
-def memberlist_update(data):
+def memberlist_update_command(data):
     members = data["members"]
     return {"command" : "ok"}
 
-commands = {"bootstrap" : bootstrap,
-            "ping"      : ping,
-            "memberlist_update" : memberlist_update}
+commands = {"bootstrap" : bootstrap_command,
+            "ping"      : ping_command,
+            "memberlist_update" : memberlist_update_command}
 
 # COORDINATOR functions
 
@@ -239,7 +234,7 @@ def main(argv):
     threading.Thread(target=pingServer.serve_forever).start()
     # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
-    seeds = json.loads(f.read())
+    seeds = pickle.loads(f.read())
     f.close()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
