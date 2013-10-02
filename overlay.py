@@ -44,12 +44,10 @@ commands = {"join" : join_command,
 # COORDINATOR functions
 
 def addMember(nodeAddress):
-    member_lock.acquire()
-    nbr_of_members = len(members)
-    members[nbr_of_members] = nodeAddress
-    member_lock.release()
-    return nbr_of_members
-
+    global next_id
+    members[next_id] = nodeAddress
+    next_id += 1
+    return next_id - 1
 #def listMembers():
 
 def removeMember(nodeID):
@@ -120,12 +118,35 @@ def cal_avg(nodeID, new_latency):
     pings[nodeID] = a*pings[nodeID] + (1-a)*new_latency
 
 def reelect_coordinator():
+    global coordinator, is_coordinator, my_ip, my_port, my_id, members, \
+    last_ping, next_id
     print "should now reelect a coordinator"
-    pass
+    coord_id = min(members, key=int)
+    if coord_id == my_id:
+        is_coordinator = True
+        coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
+        next_id = 1
+        return
+    else:
+        time.sleep(10)
+        try:
+            coordinator = members[str(coord_id)]
+            coordinator["id"] = coord_id
+            join(coordinator)
+            print "Chose %i as new coordinator" % coord_id
+            return
+        except socket.error:
+            print("could not connect to %s:%s " % (coordinator["ip"], \
+                coordinator["port"]))
+        del member[str(coord_id)]
+        coord_id = members[str(min(members))]
+    if not len(members):
+        connect_to_network()
 
 # HELPER METHODS
 
 def send_message(ip, port, message):
+    print message
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
     s.send(pickle.dumps(message))
@@ -141,33 +162,37 @@ def send_new_memberlist():
             continue
         send_message(node["ip"], node["port"], message)
 
-
-
-def connect_to_network():
+def join(node):
     global coordinator, is_coordinator, members, my_id, my_ip, \
-        my_port, seeds, last_ping
+        my_port, last_ping, seeds, next_id
     bootstrap_message = {"command"  : "join", "address" : 
                          {"ip" : my_ip, "port" : my_port}}
+    result = send_message(node["ip"], node["port"], bootstrap_message)
+    print(result)
+    if result["command"] == "coordinator_info":
+        coordinator = result["coordinator"]
+        result = send_message(coordinator["ip"], coordinator["port"], 
+                              bootstrap_message)
+        print("connected to overlay network")
+        print(result)
+    coordinator = result["coordinator"]
+    members = result["members"]
+    my_id = result["your_id"]
+    last_ping = time.time()
+
+def connect_to_network():
+    global coordinator, is_coordinator, my_id, my_ip, \
+        my_port, seeds, next_id
     for seed in seeds:
         try:
-            result = send_message(seed["ip"], seed["port"], bootstrap_message)
-            print(result)
-            if result["command"] == "coordinator_info":
-                coordinator = result["coordinator"]
-                result = send_message(coordinator["ip"], coordinator["port"], 
-                                      bootstrap_message)
-                print("connected to overlay network")
-                print(result)
-            coordinator = result["coordinator"]
-            members = result["members"]
-            my_id = result["your_id"]
-            last_ping = time.time()
+            join(seed)
             return
         except socket.error:
             print("could not connect to %s:%s " % (seed["ip"], seed["port"]))
             pass
     is_coordinator = True
     my_id = 0
+    next_id = 1
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
     print("I am now coordinator")
     
@@ -187,8 +212,8 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             print(data)
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
-        except Exception:
-            print("Exception wile receiving message: ")
+        except Exception as e:
+            print ("Exception while receiving message: %s" % (e))
             
 # UDP serversocket, answers to ping requests
 
@@ -276,11 +301,13 @@ def main(argv):
                 time.sleep(10)
             if not is_coordinator:
                 if time.time() > last_ping + 25:
-                    print("coordinator has died!")
-                    os._exit(0)
+                    print("coordinator has died!")    
+                    reelect_coordinator()
                 time.sleep(1)
-    except KeyboardInterrupt:
+    except:
+# Shutdown servers and exit
+        server.shutdown()
+        pingServer.shutdown()
         os._exit(0)
-
 if __name__ == "__main__":
     main(sys.argv[1:])
