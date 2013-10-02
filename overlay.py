@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 import SocketServer, socket, getopt, sys, threading, time, os, \
-        copy
-
-try:
-    import json
-except ImportError:
-    import simplejson as json 
+        copy, pickle
 
 is_coordinator = False
 member_lock = threading.Lock()
@@ -226,7 +221,7 @@ def main(argv):
     threading.Thread(target=pingServer.serve_forever).start()
     # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
-    seeds = json.loads(f.read())
+    seeds = pickle.loads(f.read())
     f.close()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
