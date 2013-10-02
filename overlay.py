@@ -82,8 +82,8 @@ def heartbeat():
 def send_message(ip, port, message):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
-    s.send(json.dumps(message))
-    return json.loads(s.recv(1024))
+    s.send(pickle.dumps(message))
+    return pickle.loads(s.recv(1024))
 
 def send_new_memberlist():
     global members, my_id
@@ -135,10 +135,10 @@ class MyTCPServer(SocketServer.ThreadingTCPServer):
 class MyTCPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         try:
-	    data = json.loads(self.request.recv(1024).strip())
+	    data = pickle.loads(self.request.recv(1024).strip())
             print(data)
             reply = commands[data["command"]](data)
-            self.request.sendall(json.dumps(reply))
+            self.request.sendall(pickle.dumps(reply))
 	except Exception:
             print("Exception wile receiving message: ")
             
