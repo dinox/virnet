@@ -155,24 +155,25 @@ def reelect_coordinator():
     last_ping, next_id
     print "should now reelect a coordinator"
     coord_id = min(members, key=int)
-    if coord_id == my_id:
-        is_coordinator = True
-        coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
-        next_id = 1
-        return
-    else:
-        time.sleep(10)
-        try:
-            coordinator = members[coord_id]
-            coordinator["id"] = coord_id
-            join(coordinator)
-            print "Chose %i as new coordinator" % coord_id
+    while len(members):
+        if coord_id == my_id:
+            is_coordinator = True
+            coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
+            next_id = 1
             return
-        except socket.error:
-            print("could not connect to %s:%s " % (coordinator["ip"], \
-                coordinator["port"]))
-        del members[str(coord_id)]
-        coord_id = members[str(min(members))]
+        else:
+            time.sleep(10)
+            try:
+                coordinator = members[coord_id]
+                coordinator["id"] = coord_id
+                join(coordinator)
+                print "Chose %i as new coordinator" % coord_id
+                return
+            except socket.error:
+                print("could not connect to %s:%s " % (coordinator["ip"], \
+                    coordinator["port"]))
+            del members[coord_id]
+            coord_id = members[min(members)]
     if not len(members):
         connect_to_network()
 
