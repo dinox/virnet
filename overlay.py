@@ -120,20 +120,22 @@ def measure_latency():
             if nodeID == my_id:
                 continue
             time = ping(node["ip"], node["port"], nodeID)
-            if time >= 0:
+            if time > 0:
                 cal_avg(nodeID, time)
                 log_latency(nodeID, time)
-                message = {"command" : "latency_data_command",
-                        "data" : pings }
-                send_message(coordinator["ip"], coordinator["port"], message)
+                #message = {"command" : "latency_data_command",\
+                #        "data" : pings }
+                #send_message(coordinator["ip"], coordinator["port"], message)
             else:
                 print("ping in measure_latency failed")
-    except:
-        print("exception in measure_latency")
+    except Exception, e:
+        print("exception in measure_latency %s" % e)
 
 def cal_avg(nodeID, new_latency):
     global pings
     a = 0.9
+    if not nodeID in pings:
+        pings[nodeID] = 1
     new_avg = a*float(pings[nodeID]) + (1-a)*new_latency
     pings[nodeID] = new_avg
 
@@ -202,7 +204,7 @@ def join(node):
 
 def connect_to_network():
     global coordinator, is_coordinator, my_id, my_ip, \
-        my_port, seeds, next_id
+        my_port, seeds, next_id, members
     for seed in seeds:
         try:
             join(seed)
@@ -214,6 +216,7 @@ def connect_to_network():
     my_id = 0
     next_id = 1
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
+    members[my_id] = coordinator
     print("I am now coordinator")
     
 
@@ -305,6 +308,7 @@ def log_members(filename):
         if not is_empty:
             msg = msg + ", "
         msg = msg + "node" + str(nodeID)
+        is_empty = False
     msg = msg + "]"
     f.write(msg + "\n ")
     print(msg)
