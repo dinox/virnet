@@ -372,6 +372,9 @@ def main(argv):
     connect_to_network()
     server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
     threading.Thread(target=server.serve_forever).start()
+    my_ip = socket.gethostbyname(socket.gethostname())
+    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
+    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
     try:
         while (True):
             if time.time() > last_latency_measurement + 3:
