@@ -39,9 +39,14 @@ def memberlist_update_command(data):
     log_membership()
     return {"command" : "ok"}
 
+def latency_data_command(data):
+    print("latency_data_command received")
+    return {"command" : "ok"}
+
 commands = {"join" : join_command,
             "ping"      : ping_command,
-            "memberlist_update" : memberlist_update_command}
+            "memberlist_update" : memberlist_update_command,
+            "latency_data" : latency_data_command}
 
 # COORDINATOR functions
 
@@ -109,7 +114,7 @@ def heartbeat():
 
 # Measure latency
 def measure_latency():
-    global pings, members, is_coordinator
+    global pings, members, is_coordinator, coordinator
     try:
         for nodeID, node in copy.deepcopy(members).items():
             if nodeID == my_id:
@@ -118,6 +123,9 @@ def measure_latency():
             if time >= 0:
                 cal_avg(nodeID, time)
                 log_latency(nodeID, time)
+                message = {"command" : "latency_data_command",
+                        "data" : pings }
+                send_message(coordinator["ip"], coordinator["port"], message)
             else:
                 print("ping in measure_latency failed")
     except:
