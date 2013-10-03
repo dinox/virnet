@@ -377,8 +377,12 @@ def main(argv):
                 time.sleep(5)
             if not is_coordinator:
                 if time.time() > last_ping + 25:
-                    print("coordinator has died!")    
-                    reelect_coordinator()
+                    print("coordinator has died!")
+                    try:
+                        join(coordinator)
+                    except Exception as e:
+                        print e
+                        reelect_coordinator()
                 time.sleep(1)
     except:
 # Shutdown servers and exit
