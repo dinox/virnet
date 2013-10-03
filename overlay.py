@@ -43,10 +43,16 @@ def latency_data_command(data):
     print("latency_data_command received")
     return {"command" : "ok"}
 
+def kicked_out_command(data):
+    print "Got kicked out"
+    join(coordinator)
+    return {"command" : "ok"}
+
 commands = {"join" : join_command,
             "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command,
-            "latency_data" : latency_data_command}
+            "latency_data" : latency_data_command,
+            "kicked_out" : kicked_out_command}
 
 # COORDINATOR functions
 
@@ -59,6 +65,8 @@ def addMember(nodeAddress):
 #def listMembers():
 
 def removeMember(nodeID, event):
+    global members
+    send_node_message(members[nodeID], {"command" : "kicked_out"})
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
