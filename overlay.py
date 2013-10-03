@@ -202,7 +202,7 @@ def send_new_memberlist():
             continue
         try:
             send_message(node["ip"], node["port"], message)
-        except Exception as e:
+        except Exception, e:
             print "Exception occured when sending memberlist to node%d (%s,%d)"\
                     % (nodeID, node["ip"], node["port"])
             print e
