@@ -5,7 +5,6 @@ import SocketServer, socket, getopt, sys, threading, time, os, \
 is_coordinator = False
 member_lock = threading.Lock()
 members = dict()
-my_ip = '127.0.0.1'
 my_port = 13337
 pings = dict()
 last_ping = 0
@@ -35,6 +34,7 @@ def ping_command(data):
             "payload"   : data["payload"]}
 
 def memberlist_update_command(data):
+    global members
     members = data["members"]
     log_membership()
     return {"command" : "ok"}
@@ -48,7 +48,6 @@ def latency_data_command(data):
 
 def kicked_out_command(data):
     print "Got kicked out"
-    join(coordinator)
     return {"command" : "ok"}
 
 commands = {"join" : join_command,
@@ -70,7 +69,8 @@ def addMember(nodeAddress):
 def removeMember(nodeID, event):
     global members
     try:
-        send_node_message(members[nodeID], {"command" : "kicked_out"})
+        send_node_message(members[nodeID], {"command" : "kicked_out", \
+            "coordinator" : coordinator})
     except socket.error, e:
         print e
     del members[nodeID]
@@ -81,12 +81,13 @@ def ping(host, port, host_id):
     global my_id
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(5)
         data = str(my_id)
         begin = time.time()
         sock.sendto(data.encode(), (host, port+1))
         received = sock.recv(1024).decode()
         end = time.time()
-        if str(received) == str(port):
+        if str(received) == str(host_id):
             return end-begin
         else:
             return -1
@@ -162,7 +163,8 @@ def reelect_coordinator():
         if coord_id == my_id:
             is_coordinator = True
             coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
-            next_id = 1
+            next_id = max(members) + 1
+            del members[my_id]
             return
         else:
             time.sleep(10)
@@ -194,12 +196,18 @@ def send_node_message(node, message):
 def send_new_memberlist():
     global members, my_id
     message = {"command" : "memberlist_update",
-               "members" : members}
+               "members" : members,
+               "coordinator" : coordinator}
     print(members)
     for nodeID, node in members.items():
         if (nodeID == my_id):
             continue
-        send_message(node["ip"], node["port"], message)
+        try:
+            send_message(node["ip"], node["port"], message)
+        except Exception, e:
+            print "Exception occured when sending memberlist to node%d (%s,%d)"\
+                    % (nodeID, node["ip"], node["port"])
+            print e
 
 def join(node):
     global coordinator, is_coordinator, members, my_id, my_ip, \
@@ -266,7 +274,7 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
-            socket.sendto(str(my_port).encode(), self.client_address)
+            socket.sendto(str(my_id).encode(), self.client_address)
             if str(data) == str(coordinator["id"]):
                 last_ping = time.time()
         except Exception, e:
@@ -373,6 +381,10 @@ def main(argv):
             sys.exit(2)
     # delete previous log files
     initialize_log_files()
+    my_ip = socket.gethostbyname(socket.gethostname())
+    # get ip address 
+    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
+    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
     threading.Thread(target=pingServer.serve_forever).start()
@@ -384,9 +396,6 @@ def main(argv):
     connect_to_network()
     server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
     threading.Thread(target=server.serve_forever).start()
-    my_ip = socket.gethostbyname(socket.gethostname())
-    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
-    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
     try:
         while (True):
             if time.time() > last_latency_measurement + 3:
