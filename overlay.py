@@ -384,7 +384,8 @@ def main(argv):
                         print e
                         reelect_coordinator()
                 time.sleep(1)
-    except:
+    except (KeyboardInterrupt, Exception) as e:
+        print e
 # Shutdown servers and exit
         server.shutdown()
         pingServer.shutdown()
