@@ -68,7 +68,7 @@ def removeMember(nodeID, event):
     global members
     try:
         send_node_message(members[nodeID], {"command" : "kicked_out"})
-    except socket.error as e:
+    except socket.error, e:
         print e
     del members[nodeID]
     log_event(nodeID, event)
@@ -386,11 +386,11 @@ def main(argv):
                     print("coordinator has died!")
                     try:
                         join(coordinator)
-                    except socket.error as e:
+                    except socket.error, e:
                         print e
                         reelect_coordinator()
                 time.sleep(1)
-    except (KeyboardInterrupt, Exception) as e:
+    except (KeyboardInterrupt, Exception), e:
         print e
 # Shutdown servers and exit
         server.shutdown()
