@@ -66,7 +66,10 @@ def addMember(nodeAddress):
 
 def removeMember(nodeID, event):
     global members
-    send_node_message(members[nodeID], {"command" : "kicked_out"})
+    try:
+        send_node_message(members[nodeID], {"command" : "kicked_out"})
+    except socket.error as e:
+        print e
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
