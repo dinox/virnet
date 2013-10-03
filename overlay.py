@@ -182,6 +182,8 @@ def send_message(ip, port, message):
     s.send(pickle.dumps(message))
     return pickle.loads(s.recv(1024))
 
+def send_node_message(node, message):
+    send_message(node["ip"], node["port"], message)
 def send_new_memberlist():
     global members, my_id
     message = {"command" : "memberlist_update",
