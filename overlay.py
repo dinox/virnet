@@ -163,7 +163,7 @@ def reelect_coordinator():
     else:
         time.sleep(10)
         try:
-            coordinator = members[str(coord_id)]
+            coordinator = members[coord_id]
             coordinator["id"] = coord_id
             join(coordinator)
             print "Chose %i as new coordinator" % coord_id
@@ -171,7 +171,7 @@ def reelect_coordinator():
         except socket.error:
             print("could not connect to %s:%s " % (coordinator["ip"], \
                 coordinator["port"]))
-        del member[str(coord_id)]
+        del members[str(coord_id)]
         coord_id = members[str(min(members))]
     if not len(members):
         connect_to_network()
@@ -229,7 +229,7 @@ def connect_to_network():
     my_id = 0
     next_id = 1
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
-    members[my_id] = coordinator
+    members = {}
     print("I am now coordinator")
     
 
@@ -385,7 +385,7 @@ def main(argv):
                     print("coordinator has died!")
                     try:
                         join(coordinator)
-                    except Exception as e:
+                    except socket.error as e:
                         print e
                         reelect_coordinator()
                 time.sleep(1)
