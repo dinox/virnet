@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 import SocketServer, socket, getopt, sys, threading, time, os, \
         copy, pickle
 
