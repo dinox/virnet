@@ -5,7 +5,6 @@ import SocketServer, socket, getopt, sys, threading, time, os, \
 is_coordinator = False
 member_lock = threading.Lock()
 members = dict()
-my_ip = '127.0.0.1'
 my_port = 13337
 pings = dict()
 last_ping = 0
@@ -370,6 +369,10 @@ def main(argv):
             sys.exit(2)
     # delete previous log files
     initialize_log_files()
+    my_ip = socket.gethostbyname(socket.gethostname())
+    # get ip address 
+    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
+    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
     threading.Thread(target=pingServer.serve_forever).start()
@@ -381,9 +384,6 @@ def main(argv):
     connect_to_network()
     server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
     threading.Thread(target=server.serve_forever).start()
-    my_ip = socket.gethostbyname(socket.gethostname())
-    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
-    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
     try:
         while (True):
             if time.time() > last_latency_measurement + 3:
