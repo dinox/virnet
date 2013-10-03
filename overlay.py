@@ -40,7 +40,10 @@ def memberlist_update_command(data):
     return {"command" : "ok"}
 
 def latency_data_command(data):
-    print("latency_data_command received")
+    member_pings = data["pings"]
+    log_pings(data["pings"], data["id"])
+    print("latency_data_command received: ")
+    print(member_pings)
     return {"command" : "ok"}
 
 def kicked_out_command(data):
@@ -125,7 +128,7 @@ def heartbeat():
 
 # Measure latency
 def measure_latency():
-    global pings, members, is_coordinator, coordinator
+    global pings, members, is_coordinator, coordinator, my_id
     try:
         for nodeID, node in copy.deepcopy(members).items():
             if nodeID == my_id:
@@ -134,9 +137,9 @@ def measure_latency():
             if time > 0:
                 cal_avg(nodeID, time)
                 log_latency(nodeID, time)
-                #message = {"command" : "latency_data_command",\
-                #        "data" : pings }
-                #send_message(coordinator["ip"], coordinator["port"], message)
+                message = {"command" : "latency_data",\
+                        "pings" : pings, "id" : my_id }
+                send_message(coordinator["ip"], coordinator["port"], message)
             else:
                 print("ping in measure_latency failed")
     except Exception, e:
@@ -337,6 +340,15 @@ def log_latency(nodeID, new_latency):
     f.close()
     print(msg)
 
+def log_pings(ping_list, sourceID):
+    f = open("pings.log", "a")
+    print("LOG PINGS: ")
+    for destID, line in ping_list.items():
+        msg = "[" + str(sourceID) + ", " + str(destID) + ", " + \
+                str(line) + "]"
+        f.write(msg + "\n")
+        print(msg)
+    f.close()
 
 # main function, initialize overlay node                
 
