@@ -7,7 +7,13 @@ SOCKET_TIMEOUT = 1
 LATENCY_MEASURMENT = 30
 LATENCY_TRANSMIT = 60
 HEARTBEAT = 5
-COORDINATOR_TIMEOUT = 10
+COORDINATOR_TIMEOUT = 25
+
+# global output file names
+LOG_FILE = "overlay.log"
+LATENCY_FILE = "latency.log"
+PINGS_FILE = "pings.log"
+EXCEPTION_FILE = "exceptions.log"
 
 # global variables
 is_coordinator = False
@@ -80,7 +86,7 @@ def addMember(nodeAddress):
         send_new_memberlist()
         return next_id - 1
     except Exception, e:
-        print("addMember failed: %s" % e)
+        log_exception("EXCEPTION in addMember (failed)", e)
 
 #def listMembers():
 
@@ -91,7 +97,7 @@ def removeMember(nodeID, event):
             send_node_message(members[nodeID], {"command" : "kicked_out", \
                 "coordinator" : coordinator})
         except socket.error, e:
-            print e
+            log_exception("WARNING in removemember", e)
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
@@ -110,9 +116,8 @@ def ping(host, port, host_id):
             return end-begin
         else:
             return -1
-    #TODO: catch timeout exception, don't print!
     except Exception, e:
-        print("Exception while sending ping: %s" % e)
+        log_exception("WARNING in ping", e)
         return -1
 
 # MEMBER functions
@@ -127,7 +132,7 @@ def leave():
             message = {"command" : "leave", "id" : my_id }
             send_message(coordinator["ip"], coordinator["port"], message)
         except Exception, e:
-            print("Exception while sending leave msg: %s" % e)
+            log_exception("EXCEPTION in leave", e)
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -166,9 +171,9 @@ def measure_latency():
                         "pings" : pings, "id" : my_id }
                 send_message(coordinator["ip"], coordinator["port"], message)
             else:
-                print("ping in measure_latency failed")
+                log_exception("WARNING in measure_latency", "ping failed")
     except Exception, e:
-        print("exception in measure_latency %s" % e)
+        log_exception("EXCEPTION in measure_latency", e)
 
 def cal_avg(nodeID, new_latency):
     global pings
@@ -184,8 +189,6 @@ def reelect_coordinator():
     print "should now reelect a coordinator"
     coord_id = min(members, key=int)
     while len(members):
-        print("coordinator reelection: try next")
-        print(coord_id)
         if coord_id == my_id:
             print("select myself as coordinator")
             is_coordinator = True
@@ -202,9 +205,8 @@ def reelect_coordinator():
                 if t > 0:
                     print "Chose %i as new coordinator" % coord_id
                     return
-            except socket.error:
-                print("could not connect to %s:%s " % (coordinator["ip"], \
-                    coordinator["port"]))
+            except socket.error, e:
+                log_exception("WARINING in reelect_coordinator", e)
             del members[coord_id]
             coord_id = min(members, key=int)
     if not len(members):
@@ -213,7 +215,6 @@ def reelect_coordinator():
 # HELPER METHODS
 
 def send_message(ip, port, message):
-    print message
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ip, port))
     s.send(pickle.dumps(message))
@@ -232,9 +233,7 @@ def send_new_memberlist():
         try:
             send_message(node["ip"], node["port"], message)
         except Exception, e:
-            print "Exception occured when sending memberlist to node%d (%s,%d)"\
-                    % (nodeID, node["ip"], node["port"])
-            print e
+            log_exception("WARNING in send_new_memberlist", e)
 
 def join(node):
     global coordinator, is_coordinator, members, my_id, my_ip, \
@@ -259,9 +258,8 @@ def connect_to_network():
         try:
             join(seed)
             return
-        except socket.error:
-            print("could not connect to %s:%s " % (seed["ip"], seed["port"]))
-            pass
+        except socket.error, e:
+            log_exception("WARNING in connect_to_network", e)
     is_coordinator = True
     my_id = 0
     next_id = 1
@@ -285,12 +283,11 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
    def handle(self):
         try:
             data = pickle.loads(self.request.recv(1024).strip())
-            #print(data)
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
         except Exception, e:
-            print ("Exception while receiving message: %s" % e)
-            
+            log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
+
 # UDP serversocket, answers to ping requests
 
 class MyUDPServer(SocketServer.ThreadingUDPServer):
@@ -306,26 +303,28 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
             if str(data) == str(coordinator["id"]):
                 last_ping = time.time()
         except Exception, e:
-            print("Exception while receiving message: %s" % e)
+            log_exception("EXCEPTION in MyUDPServerHandler.handle", e)
 
 # Log functions
 
 def initialize_log_files():
-    for filename in ("overlay.log", "latency.log"):
+    global LOG_FILE, LATENCY_FILE
+    for filename in (LOG_FILE, LATENCY_FILE):
         f = open(filename, "a")
         f.write("*** Start node ***\n")
         f.close()
 
 def log_membership():
-    global is_coordinator
-    filename = "overlay.log"
+    global is_coordinator, LOG_FILE
+    filename = LOG_FILE
     log_timestamp(filename)
     if not is_coordinator:
         log_coordinator(filename)
     log_members(filename)
 
 def log_event(nodeID, event):
-    filename = "overlay.log"
+    global LOG_FILE
+    filename = LOG_FILE
     log_timestamp(filename)
     tab = "    "
     msg = tab + "[EVENT " + event + "]: node" + str(nodeID)
@@ -368,8 +367,8 @@ def log_members(filename):
     f.close()
 
 def log_latency(nodeID, new_latency):
-    global pings, my_id
-    f = open("latency.log", "a")
+    global pings, my_id, LATENCY_FILE
+    f = open(LATENCY_FILE, "a")
     msg = "["+str(my_id)+", "+str(nodeID)+", "+str(new_latency)+\
             ", "+str(pings[nodeID])+", "+str(time.time())+"]"
     f.write(msg+"\n")
@@ -377,13 +376,23 @@ def log_latency(nodeID, new_latency):
     print(msg)
 
 def log_pings(ping_list, sourceID):
-    f = open("pings.log", "a")
+    global PINGS_FILE
+    f = open(PINGS_FILE, "a")
     print("LOG PINGS: ")
     for destID, line in ping_list.items():
         msg = "[" + str(sourceID) + ", " + str(destID) + ", " + \
                 str(line) + "]"
         f.write(msg + "\n")
         print(msg)
+    f.close()
+
+def log_exception(info, exception):
+    global EXCEPTION_FILE
+    f = open(EXCEPTION_FILE, "a")
+    msg = str(time.time()) + ": " + info + "\n"
+    msg = msg + "    " + str(exception)
+    print(msg)
+    f.write(msg + "\n")
     f.close()
 
 # main function, initialize overlay node                
@@ -413,8 +422,10 @@ def main(argv):
     initialize_log_files()
     my_ip = socket.gethostbyname(socket.gethostname())
     # get ip address 
-    print "Binding TCP to %s:%s" % (my_ip, str(my_port)) 
-    print "Binding UDP to %s:%s" % (my_ip, str(my_port+1)) 
+    log_exception("INFO in main", "Binding TCP to " + my_ip + ":" +\
+            str(my_port))
+    log_exception("INFO in main", "Binding UDP to " + my_ip + ":" +\
+            str(my_port+1))
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
     threading.Thread(target=pingServer.serve_forever).start()
@@ -432,16 +443,15 @@ def main(argv):
                 measure_latency()
                 last_latency_measurement = time.time()
             if is_coordinator:
-                print("Heartbeat")
                 heartbeat()
                 time.sleep(HEARTBEAT)
             if not is_coordinator:
                 if time.time() > last_ping + COORDINATOR_TIMEOUT:
-                    print("coordinator has died!")
+                    log_exception("WARNING in main", "Coordinator has died")
                     try:
                         join(coordinator)
                     except socket.error, e:
-                        print e
+                        log_exception("EXCEPTION in main", e)
                         reelect_coordinator()
                         heartbeat()
                 time.sleep(1)
