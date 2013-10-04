@@ -23,6 +23,7 @@ my_port = 13337
 pings = dict()
 last_ping = 0
 last_latency_measurement = 0
+last_latency_transmission = 0
 
 # COMMANDS
 
@@ -158,7 +159,8 @@ def heartbeat():
 
 # Measure latency
 def measure_latency():
-    global pings, members, is_coordinator, coordinator, my_id
+    global pings, members, is_coordinator, coordinator, my_id,\
+            last_latency_transmission, LATENCY_TRANSMIT
     try:
         for nodeID, node in copy.deepcopy(members).items():
             if nodeID == my_id:
@@ -167,9 +169,11 @@ def measure_latency():
             if time > 0:
                 cal_avg(nodeID, time)
                 log_latency(nodeID, time)
-                message = {"command" : "latency_data",\
+                if time.time() > last_latency_transmission + LATENCY_TRANSMIT:
+                    message = {"command" : "latency_data",\
                         "pings" : pings, "id" : my_id }
-                send_message(coordinator["ip"], coordinator["port"], message)
+                    send_message(coordinator["ip"], coordinator["port"], message)
+                    last_latency_transmission = time.time()
             else:
                 log_exception("WARNING in measure_latency", "ping failed")
     except Exception, e:
