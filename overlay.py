@@ -50,11 +50,16 @@ def kicked_out_command(data):
     print "Got kicked out"
     return {"command" : "ok"}
 
+def leave_command(data):
+    removeMember(data["id"], "LEAVE")
+    return {"command" : "ok"}
+
 commands = {"join" : join_command,
             "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command,
             "latency_data" : latency_data_command,
-            "kicked_out" : kicked_out_command}
+            "kicked_out" : kicked_out_command,
+            "leave" : leave_command}
 
 # COORDINATOR functions
 
@@ -63,16 +68,18 @@ def addMember(nodeAddress):
     members[next_id] = nodeAddress
     log_event(next_id, "JOIN")
     next_id += 1
+    send_new_memberlist()
     return next_id - 1
 #def listMembers():
 
 def removeMember(nodeID, event):
     global members
-    try:
-        send_node_message(members[nodeID], {"command" : "kicked_out", \
-            "coordinator" : coordinator})
-    except socket.error, e:
-        print e
+    if event == "FAIL":
+        try:
+            send_node_message(members[nodeID], {"command" : "kicked_out", \
+                "coordinator" : coordinator})
+        except socket.error, e:
+            print e
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
@@ -102,7 +109,13 @@ def join():
     pass
 
 def leave():
-    pass
+    global coordinator, is_coordinator
+    if not is_coordinator:
+        try:
+            message = {"command" : "leave", "id" : my_id }
+            send_message(coordinator["ip"], coordinator["port"], message)
+        except Exception, e:
+            print("Exception while sending leave msg: %s" % e)
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -115,7 +128,7 @@ def heartbeat():
         while not successful and count < 3:
             print("Start ping {0}, {1}, {2}", node["ip"], node["port"], nodeID)
             time = ping(node["ip"], node["port"], nodeID)
-            if time >= 0:
+            if time > 0:
                 pings[nodeID] = time
                 print("Pinged node %s in %.2f ms" % (nodeID, pings[nodeID]*1000))
                 successful = True
@@ -161,19 +174,23 @@ def reelect_coordinator():
     coord_id = min(members, key=int)
     while len(members):
         if coord_id == my_id:
+            print("select myself as coordinator")
             is_coordinator = True
-            coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
+            coordinator = {"ip" : my_ip, "port" : my_port, "id" : my_id}
             next_id = max(members) + 1
             del members[my_id]
             return
         else:
-            time.sleep(10)
+            #time.sleep(10)
             try:
                 coordinator = members[coord_id]
                 coordinator["id"] = coord_id
-                join(coordinator)
-                print "Chose %i as new coordinator" % coord_id
-                return
+                #join(coordinator)
+                print("send ping")
+                t = ping(coordinator["ip"], coordinator["port"],coord_id)
+                if t > 0:
+                    print "Chose %i as new coordinator" % coord_id
+                    return
             except socket.error:
                 print("could not connect to %s:%s " % (coordinator["ip"], \
                     coordinator["port"]))
@@ -416,10 +433,11 @@ def main(argv):
                 time.sleep(1)
     except (KeyboardInterrupt, Exception), e:
         print e
-# Shutdown servers and exit
-        server.shutdown()
+        # Shutdown servers and exit
         pingServer.shutdown()
         leave()
+        server.shutdown()
         os._exit(0)
+
 if __name__ == "__main__":
     main(sys.argv[1:])
