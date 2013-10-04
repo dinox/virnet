@@ -2,6 +2,14 @@
 import SocketServer, socket, getopt, sys, threading, time, os, \
         copy, pickle
 
+# global settings
+SOCKET_TIMEOUT = 1
+LATENCY_MEASURMENT = 30
+LATENCY_TRANSMIT = 60
+HEARTBEAT = 5
+COORDINATOR_TIMEOUT = 10
+
+# global variables
 is_coordinator = False
 member_lock = threading.Lock()
 members = dict()
@@ -34,16 +42,16 @@ def ping_command(data):
             "payload"   : data["payload"]}
 
 def memberlist_update_command(data):
-    global members
-    members = data["members"]
-    log_membership()
+    global members, coordinator
+    c = data["coordinator"]
+    if c["id"] == coordinator["id"]:
+        members = data["members"]
+        log_membership()
     return {"command" : "ok"}
 
 def latency_data_command(data):
     member_pings = data["pings"]
     log_pings(data["pings"], data["id"])
-    print("latency_data_command received: ")
-    print(member_pings)
     return {"command" : "ok"}
 
 def kicked_out_command(data):
@@ -65,11 +73,15 @@ commands = {"join" : join_command,
 
 def addMember(nodeAddress):
     global next_id
-    members[next_id] = nodeAddress
-    log_event(next_id, "JOIN")
-    next_id += 1
-    send_new_memberlist()
-    return next_id - 1
+    try:
+        members[next_id] = nodeAddress
+        log_event(next_id, "JOIN")
+        next_id += 1
+        send_new_memberlist()
+        return next_id - 1
+    except Exception, e:
+        print("addMember failed: %s" % e)
+
 #def listMembers():
 
 def removeMember(nodeID, event):
@@ -125,8 +137,7 @@ def heartbeat():
             continue
         successful = False
         count = 0
-        while not successful and count < 3:
-            print("Start ping {0}, {1}, {2}", node["ip"], node["port"], nodeID)
+        while not successful and count < 2:
             time = ping(node["ip"], node["port"], nodeID)
             if time > 0:
                 pings[nodeID] = time
@@ -173,12 +184,13 @@ def reelect_coordinator():
     print "should now reelect a coordinator"
     coord_id = min(members, key=int)
     while len(members):
+        print("coordinator reelection: try next")
+        print(coord_id)
         if coord_id == my_id:
             print("select myself as coordinator")
             is_coordinator = True
             coordinator = {"ip" : my_ip, "port" : my_port, "id" : my_id}
             next_id = max(members) + 1
-            del members[my_id]
             return
         else:
             #time.sleep(10)
@@ -186,7 +198,6 @@ def reelect_coordinator():
                 coordinator = members[coord_id]
                 coordinator["id"] = coord_id
                 #join(coordinator)
-                print("send ping")
                 t = ping(coordinator["ip"], coordinator["port"],coord_id)
                 if t > 0:
                     print "Chose %i as new coordinator" % coord_id
@@ -195,7 +206,7 @@ def reelect_coordinator():
                 print("could not connect to %s:%s " % (coordinator["ip"], \
                     coordinator["port"]))
             del members[coord_id]
-            coord_id = members[min(members)]
+            coord_id = min(members, key=int)
     if not len(members):
         connect_to_network()
 
@@ -215,7 +226,6 @@ def send_new_memberlist():
     message = {"command" : "memberlist_update",
                "members" : members,
                "coordinator" : coordinator}
-    print(members)
     for nodeID, node in members.items():
         if (nodeID == my_id):
             continue
@@ -232,13 +242,11 @@ def join(node):
     bootstrap_message = {"command"  : "join", "address" : 
                          {"ip" : my_ip, "port" : my_port}}
     result = send_message(node["ip"], node["port"], bootstrap_message)
-    print(result)
     if result["command"] == "coordinator_info":
         coordinator = result["coordinator"]
         result = send_message(coordinator["ip"], coordinator["port"], 
                               bootstrap_message)
         print("connected to overlay network")
-        print(result)
     coordinator = result["coordinator"]
     members = result["members"]
     my_id = result["your_id"]
@@ -259,6 +267,9 @@ def connect_to_network():
     next_id = 1
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
     members = {}
+    members[my_id] = {"ip" : my_ip, "port" : my_port}
+    del members[my_id]
+    members[my_id] = {"ip" : my_ip, "port" : my_port}
     print("I am now coordinator")
     
 
@@ -274,7 +285,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
    def handle(self):
         try:
             data = pickle.loads(self.request.recv(1024).strip())
-            print(data)
+            #print(data)
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
         except Exception, e:
@@ -378,8 +389,10 @@ def log_pings(ping_list, sourceID):
 # main function, initialize overlay node                
 
 def main(argv):
-    global my_ip, my_port, seeds, last_ping, last_latency_measurement
-    socket.setdefaulttimeout(2)
+    global my_ip, my_port, seeds, last_ping, last_latency_measurement,\
+            SOCKET_TIMEOUT, HEARTBEAT, LATENCY_MEASURMENT, \
+            LATENCY_TRANSMIT, COORDINATOR_TIMEOUT
+    socket.setdefaulttimeout(SOCKET_TIMEOUT)
     try:
         opts, args = getopt.getopt(argv,"hi:p:",["ip=", "port="])
     except getopt.GetoptError:
@@ -415,21 +428,22 @@ def main(argv):
     threading.Thread(target=server.serve_forever).start()
     try:
         while (True):
-            if time.time() > last_latency_measurement + 3:
+            if time.time() > last_latency_measurement + LATENCY_MEASURMENT:
                 measure_latency()
                 last_latency_measurement = time.time()
             if is_coordinator:
                 print("Heartbeat")
                 heartbeat()
-                time.sleep(5)
+                time.sleep(HEARTBEAT)
             if not is_coordinator:
-                if time.time() > last_ping + 25:
+                if time.time() > last_ping + COORDINATOR_TIMEOUT:
                     print("coordinator has died!")
                     try:
                         join(coordinator)
                     except socket.error, e:
                         print e
                         reelect_coordinator()
+                        heartbeat()
                 time.sleep(1)
     except (KeyboardInterrupt, Exception), e:
         print e
