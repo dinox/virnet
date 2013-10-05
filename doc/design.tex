@@ -88,6 +88,9 @@ A node is characterized by its network address (ip and port) as well as it's id 
 
 Additionally, there is the \textit{ping channel} to check the status of the connection to another node. This channel is based on the UDP protocol, every node listens for incoming ping request and responds to them. These channel cannot run on the same network address, so the port number is increase by one in the \textit{ping channel}. The listener socket is also executed in a separate thread to ensure fast responses to ping requests.
 
+\paragraph{Main function}
+The overall design builds on three parallel parts, the handling of the maintenance channel, the ping channel and thirdly the main function. The main function contains code for both coordinator and member and is executed periodically. It contains the \textit{heartbeat} function of the coordinator to check the liveness of the members, the check of the members if the coordinator is still alive and the measurement of the latency between the nodes of the network.
+
 %------------------------------------------------
 
 \subsection{Bootstrap}
@@ -116,7 +119,7 @@ If a node doesn't responds twice in a row, it is treated as dead. The coordinato
 
 \subsection{Member}
 
-Member text.
+A member can join or leave the overlay network by sending the corresponding message on the \textit{maintenance channel}. However, a member needs to detect when the coordinator fails, therefore it remembers the last ping request from the coordinator. This is implemented in the UDP server handler and the main function of a node. Whenever a ping request arrives that contains the id of the coordinator, the \textit{last\_ping} variable is update to the current time. Periodically, the member checks in the main function if the \textit{last\_ping} time is older than a certain threshold. If this is the case the members tries to reconnect to the coordinator or, if this fails as well, re-elect a new coordinator. 
 
 %----------------------------------------------------------------------------------------
 %	PART B
@@ -143,11 +146,10 @@ Member text.
 %------------------------------------------------
 
 \subsection{Latency measurement}
-\begin{enumerate}
-\item First item in a list 
-\item Second item in a list 
-\item Third item in a list
-\end{enumerate}
+
+Every thirty seconds each node calculates the latency to every other node in the network. This is implemented in the \textit{measure\_latency} function by sending a ping message on the \textit{ping channel} to another node. Using this latency, the new average latency is calculated and both values are logged to the \textit{latency.log} file. Every minute, the nodes sends array of average latencies to the coordinator. (TODO!!!) The node creates a separate log entry for failed pings, o this will not affect the average latency.
+
+The coordinator does exactly the same, he also uses the \textit{maintenance channel} to send the average latencies to himself every minute. The average latencies that are sent to the coordinator are loggend to the \textit{pings.log} file. This file is only created at the coordinator node.
 
 %----------------------------------------------------------------------------------------
 
