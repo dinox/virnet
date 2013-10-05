@@ -123,8 +123,22 @@ def ping(host, port, host_id):
 
 # MEMBER functions
 
-def join():
-    pass
+def join(node):
+    global coordinator, is_coordinator, members, my_id, my_ip, \
+        my_port, last_ping, seeds, next_id
+    bootstrap_message = {"command"  : "join", "address" : 
+                         {"ip" : my_ip, "port" : my_port}}
+    result = send_message(node["ip"], node["port"], bootstrap_message)
+    if result["command"] == "coordinator_info":
+        coordinator = result["coordinator"]
+        result = send_message(coordinator["ip"], coordinator["port"], 
+                              bootstrap_message)
+        log_all_files("* Connected to overlay network, id=" +\
+                str(result["your_id"]))
+    coordinator = result["coordinator"]
+    members = result["members"]
+    my_id = result["your_id"]
+    last_ping = time.time()
 
 def leave():
     global coordinator, is_coordinator
@@ -165,10 +179,10 @@ def measure_latency():
         for nodeID, node in copy.deepcopy(members).items():
             if nodeID == my_id:
                 continue
-            time = ping(node["ip"], node["port"], nodeID)
-            if time > 0:
-                cal_avg(nodeID, time)
-                log_latency(nodeID, time)
+            t = ping(node["ip"], node["port"], nodeID)
+            if t > 0:
+                cal_avg(nodeID, t)
+                log_latency(nodeID, t)
                 if time.time() > last_latency_transmission + LATENCY_TRANSMIT:
                     message = {"command" : "latency_data",\
                         "pings" : pings, "id" : my_id }
@@ -190,11 +204,10 @@ def cal_avg(nodeID, new_latency):
 def reelect_coordinator():
     global coordinator, is_coordinator, my_ip, my_port, my_id, members, \
     last_ping, next_id
-    print "should now reelect a coordinator"
     coord_id = min(members, key=int)
     while len(members):
         if coord_id == my_id:
-            print("select myself as coordinator")
+            log_all_files("* Select myself as new coordinator")
             is_coordinator = True
             coordinator = {"ip" : my_ip, "port" : my_port, "id" : my_id}
             next_id = max(members) + 1
@@ -207,7 +220,7 @@ def reelect_coordinator():
                 #join(coordinator)
                 t = ping(coordinator["ip"], coordinator["port"],coord_id)
                 if t > 0:
-                    print "Chose %i as new coordinator" % coord_id
+                    log_all_files("Chose " + str(coord_id) + " as new coordinator")
                     return
             except socket.error, e:
                 log_exception("WARINING in reelect_coordinator", e)
@@ -239,31 +252,17 @@ def send_new_memberlist():
         except Exception, e:
             log_exception("WARNING in send_new_memberlist", e)
 
-def join(node):
-    global coordinator, is_coordinator, members, my_id, my_ip, \
-        my_port, last_ping, seeds, next_id
-    bootstrap_message = {"command"  : "join", "address" : 
-                         {"ip" : my_ip, "port" : my_port}}
-    result = send_message(node["ip"], node["port"], bootstrap_message)
-    if result["command"] == "coordinator_info":
-        coordinator = result["coordinator"]
-        result = send_message(coordinator["ip"], coordinator["port"], 
-                              bootstrap_message)
-        print("connected to overlay network")
-    coordinator = result["coordinator"]
-    members = result["members"]
-    my_id = result["your_id"]
-    last_ping = time.time()
-
 def connect_to_network():
     global coordinator, is_coordinator, my_id, my_ip, \
         my_port, seeds, next_id, members
-    for seed in seeds:
-        try:
-            join(seed)
-            return
-        except socket.error, e:
-            log_exception("WARNING in connect_to_network", e)
+    # try twice to access the network
+    for i in (1, 2):
+        for seed in seeds:
+            try:
+                join(seed)
+                return
+            except socket.error, e:
+                log_exception("INFO in connect_to_network", e)
     is_coordinator = True
     my_id = 0
     next_id = 1
@@ -272,8 +271,8 @@ def connect_to_network():
     members[my_id] = {"ip" : my_ip, "port" : my_port}
     del members[my_id]
     members[my_id] = {"ip" : my_ip, "port" : my_port}
-    print("I am now coordinator")
-    
+    log_all_files("* I am now coordinator")
+
 
 # TCP serversocket, answers to messages coordinating the overlay
 
@@ -311,12 +310,13 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
 
 # Log functions
 
-def initialize_log_files():
-    global LOG_FILE, LATENCY_FILE
-    for filename in (LOG_FILE, LATENCY_FILE):
+def log_all_files(msg):
+    global LOG_FILE, LATENCY_FILE, EXCEPTION_FILE, PINGS_FILE
+    for filename in (LOG_FILE, LATENCY_FILE, EXCEPTION_FILE, PINGS_FILE):
         f = open(filename, "a")
-        f.write("*** Start node ***\n")
+        f.write(msg + "\n")
         f.close()
+    print(msg)
 
 def log_membership():
     global is_coordinator, LOG_FILE
@@ -423,7 +423,7 @@ def main(argv):
             print('overlay.py -ip <node ip>')
             sys.exit(2)
     # delete previous log files
-    initialize_log_files()
+    log_all_files("* Start-up node")
     my_ip = socket.gethostbyname(socket.gethostname())
     # get ip address 
     log_exception("INFO in main", "Binding TCP to " + my_ip + ":" +\
