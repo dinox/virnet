@@ -80,21 +80,37 @@
 
 The overlay network contains two kind of nodes, a coordinator node that organizes the network and member nodes. Each node can play both roles, however there can only be one coordinator node at any given time.
 
-\paragraph{Maintenance channel}
+\paragraph{Maintenance channel.}
 
-A node is characterized by its network address (ip and port) as well as it's id that was assigned by the coordinator. To maintain the network, the coordinator sends and receives TCP messages like join request or members list updates. Therefore, each node has a TCP socket where it listens for incoming TCP request. The TCP socket is configured with the network address of the corresponding node. This will be called the \textit{maintenance channel}. 
+A node is characterized by its network address (ip and port) as well as it's id that was assigned by the coordinator. To maintain the network, the coordinator sends and receives TCP messages like join request or members list updates. Therefore, each node has a TCP socket where it listens for incoming TCP request. The TCP socket is configured with the network address of the corresponding node and will run in a separate thread. This is called the \textit{maintenance channel}. 
 
-\paragraph{Ping channel}
+\paragraph{Ping channel.}
 
-Additionally, there is the \textit{ping channel} to check the status of the connection to another node. This channel is based on the UDP protocol, every node listens for incoming ping request and responds to them. These channel cannot run on the same network address, so the port number is increase by one in the \textit{ping channel}.  
+Additionally, there is the \textit{ping channel} to check the status of the connection to another node. This channel is based on the UDP protocol, every node listens for incoming ping request and responds to them. These channel cannot run on the same network address, so the port number is increase by one in the \textit{ping channel}. The listener socket is also executed in a separate thread to ensure fast responses to ping requests.
 
 %------------------------------------------------
 
+\subsection{Bootstrap}
+
+At start-up time a node is neither the coordinator nor a member. After initializing variables and log files, the node will first start the UDP socket The new participant will first try to connect to a existing network, if this fails he will start it's own overlay network. However, a node has to have an initial list of possible members of the overlay network to detect if there is already an established network. Therefore, each node requires a file (\textit{seeds.txt}) to exist in the current working directory. 
+
+The new node sends a join request on the \textit{maintenance channel} to the first network address in the file. If there exist a node with this address and it happens to be the coordinator of the network, the new node is added as a member and gets the coordinator id and the list of members in network. If the node that receives the message happens to be a member of the network, it returns the address of coordinator. The new node can then immediately send a join request to the coordinator.
+
+Failing this, the new node tries the next address in the list. If all requests fail and therefore it cannot join a network, the node selects itself as coordinator with id zero.
+
+As last step of the bootstrap phase the node starts listening on the \textit{maintenance channel}, either as coordinator or as member.
+
 \subsection{Coordinator}
 
-Coordinator text.
+The coordinator has two main functionalities, he pings periodically all members to check their liveness and he listens for messages on the \textit{maintenance channel} like a join request. 
 
-\paragraph{Heading on level 4 (paragraph)}
+\subsubsection{Heartbeat}
+The heartbeat function implements the periodically ping requests.
+If a node doesn't responds twice in a row, it is treated as dead. The coordinator removes this node from the members list, logs a FAIL event and distributes the updated members list to all members of the overlay network. Additionally, the coordinator tries to send a message (\textit{kicked out}) to the failing node.
+
+\subsubsection{Join request}
+
+\subsubsection{Leave request}
 
 %------------------------------------------------
 
