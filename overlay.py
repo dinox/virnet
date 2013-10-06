@@ -232,6 +232,7 @@ def reelect_coordinator():
                 t = ping(coordinator["ip"], coordinator["port"],coord_id)
                 if t > 0:
                     log_status("Chose " + str(coord_id) + " as new coordinator")
+                    last_ping = time.time()
                     return
             except socket.error, e:
                 log_exception("WARINING in reelect_coordinator", e)
