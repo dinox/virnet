@@ -314,7 +314,7 @@ def send_message(ip, port, message):
     except Exception, e:
         print e
         if DEBUG_MODE:
-            traceback.print_exec()
+            traceback.print_exc()
     return ret
 
 def send_node_message(node, message):
