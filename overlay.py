@@ -454,7 +454,7 @@ def log_event(nodeID, event):
 
 def log_timestamp(filename):
     f = open(filename, "a")
-    msg = str(time.time()) + ":"
+    msg = time.strftime("%Y/%m/%d %H:%M:%S") + ":"
     f.write(msg + "\n")
     print(msg)
     f.close()
@@ -509,7 +509,7 @@ def log_pings(ping_list, sourceID):
 def log_exception(info, exception):
     global EXCEPTION_FILE
     f = open(EXCEPTION_FILE, "a")
-    msg = str(time.time()) + ": " + info + "\n"
+    msg = time.strftime("%Y/%m/%d %H:%M:%S") + ": " + info + "\n"
     msg = msg + "    " + str(exception)
     print(msg)
     f.write(msg + "\n")
