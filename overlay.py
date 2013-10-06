@@ -459,6 +459,13 @@ def main_thread_body():
         print e
         before_exit()
 
+def read_nodes_from_file():
+    global seeds
+    f = open("nodes.txt", "r")
+    seeds = []
+    for line in f:
+        s = line.split(":")
+        seeds.append({"ip" : s[0], "port" : int(s[1].strip())})
 
 
 # main function, initialize overlay node                
@@ -501,10 +508,11 @@ def main(argv):
     pingThread.daemon = True
     pingThread.start()
     # read seeds (list of other possible nodes in the overlay network)
-    f = open("seeds.txt", "r")
-    seeds = pickle.loads(f.read())
-    print(seeds)
-    f.close()
+    #f = open("seeds.txt", "r")
+    #seeds = pickle.loads(f.read())
+    #print(seeds)
+    #f.close()
+    read_nodes_from_file()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
     tcpServer = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
