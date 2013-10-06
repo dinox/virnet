@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import SocketServer, socket, getopt, sys, threading, time, os, \
-        copy, pickle
+        copy, pickle, atexit
 
 # global settings
 SOCKET_TIMEOUT = 3
@@ -108,7 +108,7 @@ def removeMember(nodeID, event):
             send_node_message(members[nodeID], {"command" : "kicked_out", \
                 "coordinator" : coordinator})
         except socket.error, e:
-            log_exception("WARNING in removemember", e)
+            log_exception("WARNING in removeMember", e)
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
@@ -199,7 +199,8 @@ def measure_latency():
                     send_message(coordinator["ip"], coordinator["port"], message)
                     last_latency_transmission = time.time()
             else:
-                log_exception("WARNING in measure_latency", "ping failed")
+                log_exception("WARNING in measure_latency", "LATENCY node" +\
+                        str(nodeID) + "FAILED")
     except Exception, e:
         log_exception("EXCEPTION in measure_latency", e)
 
@@ -280,8 +281,6 @@ def connect_to_network():
     next_id = 1
     coordinator = {"ip" : my_ip, "port" : my_port, "id" : 0}
     members = {}
-    members[my_id] = {"ip" : my_ip, "port" : my_port}
-    del members[my_id]
     members[my_id] = {"ip" : my_ip, "port" : my_port}
     log_status("* I am now coordinator")
 
@@ -433,6 +432,7 @@ def main(argv):
             SOCKET_TIMEOUT, HEARTBEAT, LATENCY_MEASURMENT, \
             LATENCY_TRANSMIT, COORDINATOR_TIMEOUT, \
             pingServer, tcpServer
+    atexit.register(before_exit)
     socket.setdefaulttimeout(SOCKET_TIMEOUT)
     try:
         opts, args = getopt.getopt(argv,"hi:p:",["ip=", "port="])
