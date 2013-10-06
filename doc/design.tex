@@ -80,7 +80,7 @@
 
 \subsection{Design overview}
 
-The overlay network contains two kind of nodes, a coordinator node that organizes the network and member nodes. Each node can play both roles, however there can only be one coordinator node at any given time.
+The overlay network contains of two kind of nodes, a coordinator node that organizes the network and member nodes that participate in the network. Each node can play both roles, however there can only be one coordinator node at any given time.
 
 \paragraph{Maintenance channel}
 
@@ -92,6 +92,8 @@ Additionally, there is the \textit{ping channel} to check the status of the conn
 
 \paragraph{Main function}
 The overall design builds on three parallel parts, the handling of the maintenance channel, the ping channel and thirdly the main function. The main function contains code for both coordinator and member and is executed periodically. It contains the \textit{heartbeat} function of the coordinator to check the liveness of the members, the check of the members if the coordinator is still alive and the measurement of the latency between the nodes of the network.
+
+The system is build such that all depends on the main thread. If the main thread dies, the other thread have to die as well. Unfortunately, the socket.shutdown() method doesn't exist in python2.5 that is the most common python version on planetlab. Therefore main thread updates an \textit{is\_alive} variable. The other threads detect when this variable isn't updated for a certain time period. If this is the case, they will stop.
 
 %------------------------------------------------
 
