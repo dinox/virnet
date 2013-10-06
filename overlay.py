@@ -133,7 +133,7 @@ def join(node):
         coordinator = result["coordinator"]
         result = send_message(coordinator["ip"], coordinator["port"], 
                               bootstrap_message)
-        log_all_files("* Connected to overlay network, id=" +\
+        log_status("* Connected to overlay network, id=" +\
                 str(result["your_id"]))
     coordinator = result["coordinator"]
     members = result["members"]
@@ -207,7 +207,7 @@ def reelect_coordinator():
     coord_id = min(members, key=int)
     while len(members):
         if coord_id == my_id:
-            log_all_files("* Select myself as new coordinator")
+            log_status("* Select myself as new coordinator")
             is_coordinator = True
             coordinator = {"ip" : my_ip, "port" : my_port, "id" : my_id}
             next_id = max(members) + 1
@@ -220,7 +220,7 @@ def reelect_coordinator():
                 #join(coordinator)
                 t = ping(coordinator["ip"], coordinator["port"],coord_id)
                 if t > 0:
-                    log_all_files("Chose " + str(coord_id) + " as new coordinator")
+                    log_status("Chose " + str(coord_id) + " as new coordinator")
                     return
             except socket.error, e:
                 log_exception("WARINING in reelect_coordinator", e)
@@ -271,7 +271,7 @@ def connect_to_network():
     members[my_id] = {"ip" : my_ip, "port" : my_port}
     del members[my_id]
     members[my_id] = {"ip" : my_ip, "port" : my_port}
-    log_all_files("* I am now coordinator")
+    log_status("* I am now coordinator")
 
 
 # TCP serversocket, answers to messages coordinating the overlay
@@ -310,9 +310,9 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
 
 # Log functions
 
-def log_all_files(msg):
-    global LOG_FILE, LATENCY_FILE, EXCEPTION_FILE, PINGS_FILE
-    for filename in (LOG_FILE, LATENCY_FILE, EXCEPTION_FILE, PINGS_FILE):
+def log_status(msg):
+    global LOG_FILE, EXCEPTION_FILE
+    for filename in (LOG_FILE, EXCEPTION_FILE):
         f = open(filename, "a")
         f.write(msg + "\n")
         f.close()
@@ -423,7 +423,7 @@ def main(argv):
             print('overlay.py -ip <node ip>')
             sys.exit(2)
     # delete previous log files
-    log_all_files("* Start-up node")
+    log_status("* Start-up node")
     my_ip = socket.gethostbyname(socket.gethostname())
     # get ip address 
     log_exception("INFO in main", "Binding TCP to " + my_ip + ":" +\
