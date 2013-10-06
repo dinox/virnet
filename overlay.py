@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import SocketServer, socket, getopt, sys, threading, time, os, \
-        copy, pickle, atexit
+        copy, pickle, atexit, traceback
 
 # global settings
 SOCKET_TIMEOUT = 3
@@ -102,6 +102,7 @@ def addMember(nodeAddress):
         return next_id - 1
     except Exception, e:
         log_exception("EXCEPTION in addMember (failed)", e)
+        traceback.print_exc()
 
 #def listMembers():
 
@@ -114,6 +115,7 @@ def removeMember(nodeID, event):
                 "coordinator" : coordinator})
         except socket.error, e:
             log_exception("WARNING in removeMember", e)
+            traceback.print_exc()
     # Delete member from member's list
     del members[nodeID]
     # Log event
@@ -144,6 +146,7 @@ def ping(host, port, host_id):
             return -1
     except Exception, e:
         log_exception("WARNING in ping", e)
+        traceback.print_exc()
         return -1
 
 # MEMBER functions
@@ -188,6 +191,7 @@ def leave():
             result = send_message(coordinator["ip"], coordinator["port"], message)
         except Exception, e:
             log_exception("EXCEPTION in leave", e)
+            traceback.print_exc()
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -239,6 +243,7 @@ def measure_latency():
                         str(nodeID) + " FAILED")
     except Exception, e:
         log_exception("EXCEPTION in measure_latency", e)
+        traceback.print_exc()
 
 def cal_avg(nodeID, new_latency):
     # Calculates a exponential moving average of pings.
@@ -278,6 +283,7 @@ def reelect_coordinator():
                     return
             except socket.error, e:
                 log_exception("WARINING in reelect_coordinator", e)
+                traceback.print_exc()
             del members[coord_id]
             coord_id = min(members, key=int)
     # If all this fails, try to bootstrap again.
@@ -311,6 +317,7 @@ def send_new_memberlist():
             send_message(node["ip"], node["port"], message)
         except Exception, e:
             log_exception("WARNING in send_new_memberlist", e)
+            traceback.print_exc()
 
 def connect_to_network():
     global coordinator, is_coordinator, my_id, my_ip, \
@@ -323,6 +330,7 @@ def connect_to_network():
                 return
             except socket.error, e:
                 log_exception("INFO in connect_to_network", e)
+                traceback.print_exc()
     # Accessing the network failed, then I will be the coordinator
     is_coordinator = True
     my_id = 0
@@ -363,6 +371,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             self.request.sendall(pickle.dumps(reply))
         except Exception, e:
             log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
+            traceback.print_exc()
 
 # UDP serversocket, answers to ping requests
 
@@ -389,6 +398,7 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
                 last_ping = time.time()
         except Exception, e:
             log_exception("EXCEPTION in MyUDPServerHandler.handle", e)
+            traceback.print_exc()
 
 # Log functions
 
@@ -523,9 +533,11 @@ def main_thread_body():
                 time.sleep(1)
             except Exception, e:
                 log_exception("EXCEPTION in main_thread_body", e)
+                traceback.print_exc()
     except (KeyboardInterrupt, Exception), e:
         # Print the unexpected exception and exit
         print e
+        traceback.print_exc()
         before_exit()
 
 def read_nodes_from_file():
