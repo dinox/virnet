@@ -347,7 +347,7 @@ def connect_to_network():
             try:
                 join(seed)
                 return
-            except socket.error, e:
+            except Exception, e:
                 log_exception("INFO in connect_to_network", e)
                 if DEBUG_MODE:
                     traceback.print_exc()
@@ -547,7 +547,7 @@ def main_thread_body():
                         log_exception("WARNING in main", "Coordinator has died")
                         try:
                             join(coordinator)
-                        except socket.error, e:
+                        except Exception, e:
                             log_exception("EXCEPTION in main_thread_body, member", e)
                             reelect_coordinator()
                             heartbeat()
