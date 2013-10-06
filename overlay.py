@@ -412,12 +412,27 @@ def log_exception(info, exception):
     f.write(msg + "\n")
     f.close()
 
+def before_exit():
+    global pingServer, tcpServer
+    # Shutdown servers and exit
+    try:
+        pingServer.shutdown()
+    except:
+        pass
+    try:
+        tcpServer.shutdown()
+    except:
+        pass
+    leave()
+    sys.exit(0)
+
 # main function, initialize overlay node                
 
 def main(argv):
     global my_ip, my_port, seeds, last_ping, last_latency_measurement,\
             SOCKET_TIMEOUT, HEARTBEAT, LATENCY_MEASURMENT, \
-            LATENCY_TRANSMIT, COORDINATOR_TIMEOUT
+            LATENCY_TRANSMIT, COORDINATOR_TIMEOUT, \
+            pingServer, tcpServer
     socket.setdefaulttimeout(SOCKET_TIMEOUT)
     try:
         opts, args = getopt.getopt(argv,"hi:p:",["ip=", "port="])
@@ -445,7 +460,9 @@ def main(argv):
             str(my_port+1))
     # listen for UPD messages for ping request
     pingServer = MyUDPServer(('0.0.0.0', my_port+1), MyUDPServerHandler)
-    threading.Thread(target=pingServer.serve_forever).start()
+    pingThread = threading.Thread(target=pingServer.serve_forever)
+    pingThread.daemon = True
+    pingThread.start()
     # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
     seeds = pickle.loads(f.read())
@@ -453,7 +470,9 @@ def main(argv):
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
     tcpServer = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
-    threading.Thread(target=tcpServer.serve_forever).start()
+    tcpThread = threading.Thread(target=tcpServer.serve_forever)
+    tcpThread.daemon = True
+    tcpThread.start()
     try:
         while (True):
             if time.time() > last_latency_measurement + LATENCY_MEASURMENT:
@@ -474,11 +493,7 @@ def main(argv):
                 time.sleep(1)
     except (KeyboardInterrupt, Exception), e:
         print e
-        # Shutdown servers and exit
-        pingServer.shutdown()
-        leave()
-        tcpServer.shutdown()
-        os._exit(0)
+        before_exit()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

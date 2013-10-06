@@ -112,7 +112,7 @@ The heartbeat function implements the periodically ping requests.
 If a node doesn't responds twice in a row, it is treated as dead. The coordinator removes this node from the members list, logs a FAIL event and distributes the updated members list to all members of the overlay network. Additionally, the coordinator tries to send a message (\textit{kicked out}) to the failing node.
 
 \subsubsection{Join request}
-A join request can be sent to any member of the network and reply depends on the status of receiving node. If the node is a member he replies with a \textit{coordinator_info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current memberlist and coordinator details.
+A join request can be sent to any member of the network and reply depends on the status of receiving node. If the node is a member he replies with a \textit{coordinator\_info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current memberlist and coordinator details.
 
 \subsubsection{Leave request}
 A leave request is sent to the coordinator when a member wants to leave the network and is processed by the coordinator as a delete of the node from the member's list and broadcast of the new member's list to all members.
@@ -132,17 +132,14 @@ A member can join or leave the overlay network by sending the corresponding mess
 %------------------------------------------------
 
 \subsection{Coordinator reelection}
+The nodes keep track of when the last ping from the coordinator was received, and when a certain time has progressed (we used 25 seconds) then the coordinator is considered dead. The election of a new coordinator is done according to the following list:
 \begin{itemize}
-	\item First item in a list 
-		\begin{itemize}
-		\item First item in a list 
-			\begin{itemize}
-			\item First item in a list 
-			\item Second item in a list 
-			\end{itemize}
-		\item Second item in a list 
-		\end{itemize}
-	\item Second item in a list 
+	\item Send a ping to the current coordinator, if he responds exit.
+	\item Take the member which has the lowest ID and ping him. If he responds, he is the new coordinator.
+	\begin{itemize}
+		\item If not, take the member with the second lowest ID and so on.
+	\end{itemize}
+	\item If I am the member with lowest ID, I am the new coordinator. Send out a member's list to all members that is still in the list.
 \end{itemize}
 
 %------------------------------------------------
