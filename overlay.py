@@ -108,7 +108,7 @@ def removeMember(nodeID, event):
             send_node_message(members[nodeID], {"command" : "kicked_out", \
                 "coordinator" : coordinator})
         except socket.error, e:
-            log_exception("WARNING in removemember", e)
+            log_exception("WARNING in removeMember", e)
     del members[nodeID]
     log_event(nodeID, event)
     send_new_memberlist()
@@ -199,7 +199,8 @@ def measure_latency():
                     send_message(coordinator["ip"], coordinator["port"], message)
                     last_latency_transmission = time.time()
             else:
-                log_exception("WARNING in measure_latency", "ping failed")
+                log_exception("WARNING in measure_latency", "LATENCY node" +\
+                        str(nodeID) + "FAILED")
     except Exception, e:
         log_exception("EXCEPTION in measure_latency", e)
 
