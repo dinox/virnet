@@ -112,8 +112,10 @@ The heartbeat function implements the periodically ping requests.
 If a node doesn't responds twice in a row, it is treated as dead. The coordinator removes this node from the members list, logs a FAIL event and distributes the updated members list to all members of the overlay network. Additionally, the coordinator tries to send a message (\textit{kicked out}) to the failing node.
 
 \subsubsection{Join request}
+A join request can be sent to any member of the network and reply depends on the status of receiving node. If the node is a member he replies with a \textit{coordinator_info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current memberlist and coordinator details.
 
 \subsubsection{Leave request}
+A leave request is sent to the coordinator when a member wants to leave the network and is processed by the coordinator as a delete of the node from the member's list and broadcast of the new member's list to all members.
 
 %------------------------------------------------
 
