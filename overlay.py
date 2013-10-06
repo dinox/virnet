@@ -185,7 +185,7 @@ def leave():
     if not is_coordinator:
         try:
             message = {"command" : "leave", "id" : my_id }
-            send_message(coordinator["ip"], coordinator["port"], message)
+            result = send_message(coordinator["ip"], coordinator["port"], message)
         except Exception, e:
             log_exception("EXCEPTION in leave", e)
 
@@ -351,7 +351,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             # too long not alive, kill myself
             log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
-            before_exit()
+            sys_exit()
         try:
             # Deserialize received data
             data = pickle.loads(self.request.recv(1024).strip())
@@ -377,7 +377,7 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
             # too long not alive, kill myself
             log_exception("DEAD in MyUDPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
-            before_exit()
+            sys_exit()
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
@@ -484,12 +484,13 @@ def log_exception(info, exception):
     f.close()
 
 def before_exit():
-    global pingServer, tcpServer
+    global pingServer, tcpServer, is_alive
     # Shutdown servers and exit
     # --- Commented out since it don't work with python 2.5
     # pingServer.shutdown()
     # tcpServer.shutdown()
     leave()
+    is_alive = -1000
     sys.exit(0)
 
 # Main Thread
