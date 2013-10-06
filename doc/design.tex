@@ -24,6 +24,8 @@
 \usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
 \usepackage[english]{babel} % English language/hyphenation
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
+\usepackage[pdftex]{graphicx}
+\graphicspath{{./}}
 
 \usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
 
@@ -112,10 +114,8 @@ The heartbeat function implements the periodically ping requests.
 If a node doesn't responds twice in a row, it is treated as dead. The coordinator removes this node from the members list, logs a FAIL event and distributes the updated members list to all members of the overlay network. Additionally, the coordinator tries to send a message (\textit{kicked out}) to the failing node.
 
 \subsubsection{Join request}
-A join request can be sent to any member of the network and reply depends on the status of receiving node. If the node is a member he replies with a \textit{coordinator_info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current memberlist and coordinator details.
 
 \subsubsection{Leave request}
-A leave request is sent to the coordinator when a member wants to leave the network and is processed by the coordinator as a delete of the node from the member's list and broadcast of the new member's list to all members.
 
 %------------------------------------------------
 
@@ -157,6 +157,21 @@ The coordinator does exactly the same, he also uses the \textit{maintenance chan
 
 The log files for the longer trace were produced on Sunday, between 4 p.m. and 6 p.m. The three participants of the overlay networks are \textit{righthand.eecs.harvard.edu}, a node from the Harvard University as the American node, \textit{planetlab1.inf.ethz.ch}, a node from ETHZ as the European node and \textit{pln.zju.edu.cn}, a node form the Zhejian University as the Asian node.
 
+\begin{figure*}[th]
+\includegraphics[width=\columnwidth]{latency_harvard_ethz.pdf}
+\caption{Latency from Harvard to ETHZ}
+\end{figure*}
+
+\begin{figure*}[th]
+\includegraphics[width=\columnwidth]{latency_harvard_zhejiang.pdf}
+\caption{Latency from Harvard to Zhejiang}
+\end{figure*}
+
+%\begin{figure*}[th]
+% \includegraphics[width=\textwidth]{latency_harvard_ethz.pdf}
+% \caption{Latency from Harvard to ETHZ}
+% \label{fig:latency_harvard_ethz}
+%\end{figure}
 %----------------------------------------------------------------------------------------
 
 \end{document}
