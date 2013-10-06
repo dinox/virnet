@@ -8,6 +8,7 @@ LATENCY_MEASURMENT = 30
 LATENCY_TRANSMIT = 60
 HEARTBEAT = 5
 COORDINATOR_TIMEOUT = 25
+DEBUG_MODE = False
 
 # global output file names
 LOG_FILE = "overlay.log"
@@ -92,7 +93,7 @@ commands = {"join" : join_command,
 # COORDINATOR functions
 
 def addMember(nodeAddress):
-    global next_id
+    global next_id, DEBUG_MODE
     try:
         # Add the new member
         members[next_id] = nodeAddress
@@ -105,12 +106,13 @@ def addMember(nodeAddress):
         return next_id - 1
     except Exception, e:
         log_exception("EXCEPTION in addMember (failed)", e)
-        traceback.print_exc()
+        if DEBUG_MODE:
+            traceback.print_exc()
 
 #def listMembers():
 
 def removeMember(nodeID, event):
-    global members
+    global members, DEBUG_MODE
     if event == "FAIL":
         try:
             # Send kicked_out message to member
@@ -118,6 +120,7 @@ def removeMember(nodeID, event):
                 "coordinator" : coordinator})
         except socket.error, e:
             log_exception("WARNING in removeMember", e)
+        if DEBUG_MODE:
             traceback.print_exc()
     # Delete member from member's list
     del members[nodeID]
@@ -127,7 +130,7 @@ def removeMember(nodeID, event):
     send_new_memberlist()
 
 def ping(host, port, host_id):
-    global my_id
+    global my_id, DEBUG_MODE
     try:
         # Create a new socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -149,7 +152,8 @@ def ping(host, port, host_id):
             return -1
     except Exception, e:
         log_exception("WARNING in ping", e)
-        traceback.print_exc()
+        if DEBUG_MODE:
+            traceback.print_exc()
         return -1
 
 # MEMBER functions
@@ -186,15 +190,16 @@ def join(node):
     last_ping = time.time()
 
 def leave():
-    global coordinator, is_coordinator
+    global coordinator, is_coordinator, DEBUG_MODE
     # The coordinator never send a leave request to the network.
     if not is_coordinator:
-        #try:
+        try:
             message = {"command" : "leave", "id" : my_id }
             result = send_message(coordinator["ip"], coordinator["port"], message)
         except Exception, e:
             log_exception("EXCEPTION in leave", e)
-            traceback.print_exc()
+            if DEBUG_MODE:
+                traceback.print_exc()
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -227,7 +232,7 @@ def heartbeat():
 # Measure latency
 def measure_latency():
     global pings, members, is_coordinator, coordinator, my_id,\
-            last_latency_transmission, LATENCY_TRANSMIT
+            last_latency_transmission, LATENCY_TRANSMIT, DEBUG_MODE
     try:
         for nodeID, node in copy.deepcopy(members).items():
             if nodeID == my_id:
@@ -246,7 +251,8 @@ def measure_latency():
                         str(nodeID) + " FAILED")
     except Exception, e:
         log_exception("EXCEPTION in measure_latency", e)
-        traceback.print_exc()
+        if DEBUG_MODE:
+            traceback.print_exc()
 
 def cal_avg(nodeID, new_latency):
     # Calculates a exponential moving average of pings.
@@ -260,7 +266,7 @@ def cal_avg(nodeID, new_latency):
 
 def reelect_coordinator():
     global coordinator, is_coordinator, my_ip, my_port, my_id, members, \
-    last_ping, next_id
+    last_ping, next_id, DEBUG_MODE
     # Set the oldest member (member with lowest id) to coordinator.
     coord_id = min(members, key=int)
     while len(members):
@@ -286,7 +292,8 @@ def reelect_coordinator():
                     return
             except socket.error, e:
                 log_exception("WARINING in reelect_coordinator", e)
-                traceback.print_exc()
+                if DEBUG_MODE:
+                    traceback.print_exc()
             del members[coord_id]
             coord_id = min(members, key=int)
     # If all this fails, try to bootstrap again.
@@ -308,7 +315,7 @@ def send_node_message(node, message):
 
 def send_new_memberlist():
     # Broadcast the member's list
-    global members, my_id
+    global members, my_id, DEBUG_MODE
     message = {"command" : "memberlist_update",
                "members" : members,
                "coordinator" : coordinator}
@@ -320,11 +327,12 @@ def send_new_memberlist():
             send_message(node["ip"], node["port"], message)
         except Exception, e:
             log_exception("WARNING in send_new_memberlist", e)
-            traceback.print_exc()
+            if DEBUG_MODE:
+                traceback.print_exc()
 
 def connect_to_network():
     global coordinator, is_coordinator, my_id, my_ip, \
-        my_port, seeds, next_id, members
+        my_port, seeds, next_id, members, DEBUG_MODE
     # try twice to access the network
     for i in (1, 2):
         for seed in seeds:
@@ -333,7 +341,8 @@ def connect_to_network():
                 return
             except socket.error, e:
                 log_exception("INFO in connect_to_network", e)
-                traceback.print_exc()
+                if DEBUG_MODE:
+                    traceback.print_exc()
     # Accessing the network failed, then I will be the coordinator
     is_coordinator = True
     my_id = 0
@@ -357,25 +366,26 @@ class MyTCPServer(SocketServer.ThreadingTCPServer):
 
 class MyTCPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self): 
-        global is_alive, COORDINATOR_TIMEOUT
+        global is_alive, COORDINATOR_TIMEOUT, DEBUG_MODE
         if time.time() > is_alive + COORDINATOR_TIMEOUT:
             # too long not alive, kill myself
             log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
             sys_exit()
         if True:
-        #try:
-            # Deserialize received data
-            data = pickle.loads(self.request.recv(1024).strip())
-            # Python magic. commands[data["command]] gives function pointer to
-            # one of the server command functions and it is then called with
-            # (data) as parameter. Ex. join_command(data)
-            reply = commands[data["command"]](data)
-            # Send back the reply generated by the commands function
-            self.request.sendall(pickle.dumps(reply))
-        except Exception, e:
-            log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
-            traceback.print_exc()
+            try:
+                # Deserialize received data
+                data = pickle.loads(self.request.recv(1024).strip())
+                # Python magic. commands[data["command]] gives function pointer to
+                # one of the server command functions and it is then called with
+                # (data) as parameter. Ex. join_command(data)
+                reply = commands[data["command"]](data)
+                # Send back the reply generated by the commands function
+                self.request.sendall(pickle.dumps(reply))
+            except Exception, e:
+                log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
+                if DEBUG_MODE:
+                    traceback.print_exc()
 
 # UDP serversocket, answers to ping requests
 
@@ -385,7 +395,7 @@ class MyUDPServer(SocketServer.ThreadingUDPServer):
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         global last_ping, my_port, members, coordinator, my_id, is_alive,\
-                COORDINATOR_TIMEOUT
+                COORDINATOR_TIMEOUT, DEBUG_MODE
         if time.time() > is_alive + COORDINATOR_TIMEOUT:
             # too long not alive, kill myself
             log_exception("DEAD in MyUDPServerHandler.handle", "Assume main" + \
@@ -402,7 +412,8 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
                 last_ping = time.time()
         except Exception, e:
             log_exception("EXCEPTION in MyUDPServerHandler.handle", e)
-            traceback.print_exc()
+            if DEBUG_MODE:
+                traceback.print_exc()
 
 # Log functions
 
@@ -510,7 +521,7 @@ def before_exit():
 # Main Thread
 def main_thread_body():
     global last_latency_measurement, LATENCY_MEASURMENT, COORDINATOR_TIMEOUT,\
-            is_alive, is_coordinator, last_ping
+            is_alive, is_coordinator, last_ping, DEBUG_MODE
     try:
         while (True):
             is_alive = time.time()
@@ -537,11 +548,13 @@ def main_thread_body():
                 time.sleep(1)
             except Exception, e:
                 log_exception("EXCEPTION in main_thread_body", e)
-                traceback.print_exc()
+                if DEBUG_MODE:
+                    traceback.print_exc()
     except (KeyboardInterrupt, Exception), e:
         # Print the unexpected exception and exit
         print e
-        traceback.print_exc()
+        if DEBUG_MODE:
+            traceback.print_exc()
         before_exit()
 
 def read_nodes_from_file():
@@ -559,7 +572,7 @@ def read_nodes_from_file():
 def main(argv):
     global my_ip, my_port, seeds, last_ping, last_latency_measurement,\
             SOCKET_TIMEOUT, HEARTBEAT, LATENCY_MEASURMENT, \
-            LATENCY_TRANSMIT, COORDINATOR_TIMEOUT, \
+            LATENCY_TRANSMIT, COORDINATOR_TIMEOUT, DEBUG_MODE, \
             pingServer, tcpServer, is_alive
     # Register before_exit() as the function which does cleanup before python
     # exits the program
@@ -568,7 +581,7 @@ def main(argv):
     socket.setdefaulttimeout(SOCKET_TIMEOUT)
     # Now follows code which has to do with command line parameters
     try:
-        opts, args = getopt.getopt(argv,"hi:p:",["ip=", "port="])
+        opts, args = getopt.getopt(argv,"hi:p:d",["ip=", "port="])
     except getopt.GetoptError:
         print('overlay.py --ip <node ip>')
         sys.exit(2)
@@ -580,6 +593,8 @@ def main(argv):
             my_ip = arg
         elif opt in ("-p", "--port"):
             my_port = int(arg)
+        elif opt == '-d':
+            DEBUG_MODE = True
         else:
             print('overlay.py -ip <node ip>')
             sys.exit(2)
