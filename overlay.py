@@ -61,6 +61,9 @@ def memberlist_update_command(data):
             send_new_memberlist()
             is_coordinator = False
         coordinator = c
+        # Try to join other network
+        seeds = [coordinator]
+        connect_to_network()
     return {"command" : "ok"}
 
 def latency_data_command(data):
@@ -306,7 +309,7 @@ class MyUDPServer(SocketServer.ThreadingUDPServer):
 
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
-        global last_ping, my_port, members, coordinator
+        global last_ping, my_port, members, coordinator, my_id
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
