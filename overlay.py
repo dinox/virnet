@@ -305,7 +305,7 @@ def reelect_coordinator():
 def send_message(ip, port, message):
     # Sends a message over tcp sockets and returns the reply
     global DEBUG_MODE
-    ret = ''
+    ret = {"command" : "error"}
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, port))
