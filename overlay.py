@@ -197,9 +197,10 @@ def cal_avg(nodeID, new_latency):
     global pings
     a = 0.9
     if not nodeID in pings:
-        pings[nodeID] = 1
-    new_avg = a*float(pings[nodeID]) + (1-a)*new_latency
-    pings[nodeID] = new_avg
+        pings[nodeID] = new_latency
+    else:
+        new_avg = a*float(pings[nodeID]) + (1-a)*new_latency
+        pings[nodeID] = new_avg
 
 def reelect_coordinator():
     global coordinator, is_coordinator, my_ip, my_port, my_id, members, \
