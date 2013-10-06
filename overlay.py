@@ -74,7 +74,10 @@ def kicked_out_command(data):
     return {"command" : "ok"}
 
 def leave_command(data):
-    removeMember(data["id"], "LEAVE")
+    print(data)
+    print(members)
+    print(data["id"])
+    removeMember(int(data["id"]), "LEAVE")
     return {"command" : "ok"}
 
 # This is the list of network commands which the TCP server accepts. The
@@ -183,11 +186,11 @@ def leave():
     global coordinator, is_coordinator
     # The coordinator never send a leave request to the network.
     if not is_coordinator:
-        try:
+        #try:
             message = {"command" : "leave", "id" : my_id }
             result = send_message(coordinator["ip"], coordinator["port"], message)
-        except Exception, e:
-            log_exception("EXCEPTION in leave", e)
+        #except Exception, e:
+        #    log_exception("EXCEPTION in leave", e)
 
 # Heartbeat function (check if all members are alive)
 def heartbeat():
@@ -337,12 +340,13 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
             sys_exit()
-        try:
+        if True:
+        #try:
             data = pickle.loads(self.request.recv(1024).strip())
             reply = commands[data["command"]](data)
             self.request.sendall(pickle.dumps(reply))
-        except Exception, e:
-            log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
+        #except Exception, e:
+        #    log_exception("EXCEPTION in MyTCPServerHandler.handle", e)
 
 # UDP serversocket, answers to ping requests
 
