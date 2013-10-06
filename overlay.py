@@ -189,7 +189,7 @@ def leave():
     global coordinator, is_coordinator
     # The coordinator never send a leave request to the network.
     if not is_coordinator:
-        #try:
+        try:
             message = {"command" : "leave", "id" : my_id }
             result = send_message(coordinator["ip"], coordinator["port"], message)
         except Exception, e:
@@ -363,8 +363,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
             sys_exit()
-        if True:
-        #try:
+        try:
             # Deserialize received data
             data = pickle.loads(self.request.recv(1024).strip())
             # Python magic. commands[data["command]] gives function pointer to
@@ -542,7 +541,6 @@ def main_thread_body():
         # Print the unexpected exception and exit
         print e
         traceback.print_exc()
-        before_exit()
 
 def read_nodes_from_file():
     # Load the seeds file
