@@ -25,8 +25,11 @@ last_ping = 0
 last_latency_measurement = 0
 last_latency_transmission = 0
 
-# COMMANDS
+# Variables to ensure integrity of the node
+# There are 3 threads in the node, if one of them dies, the other will die as well
+is_alive = 0
 
+# COMMANDS
 def join_command(data):
     if not is_coordinator:
         return coordinator_info_command(data)
@@ -42,11 +45,6 @@ def coordinator_info_command(data):
 def list_members_command(data):
     return {"command" : "reply",
             "members" : members}
-def ping_command(data):
-    global last_ping
-    last_ping = time.time()
-    return {"command"   : "ping_reply",
-            "payload"   : data["payload"]}
 
 def memberlist_update_command(data):
     global members, coordinator
@@ -80,7 +78,6 @@ def leave_command(data):
     return {"command" : "ok"}
 
 commands = {"join" : join_command,
-            "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command,
             "latency_data" : latency_data_command,
             "kicked_out" : kicked_out_command,
@@ -200,7 +197,7 @@ def measure_latency():
                     last_latency_transmission = time.time()
             else:
                 log_exception("WARNING in measure_latency", "LATENCY node" +\
-                        str(nodeID) + "FAILED")
+                        str(nodeID) + " FAILED")
     except Exception, e:
         log_exception("EXCEPTION in measure_latency", e)
 
@@ -294,7 +291,13 @@ class MyTCPServer(SocketServer.ThreadingTCPServer):
         self.socket.bind(self.server_address)
 
 class MyTCPServerHandler(SocketServer.BaseRequestHandler):
-   def handle(self):
+    def handle(self): 
+        global is_alive, COORDINATOR_TIMEOUT
+        if time.time() > is_alive + COORDINATOR_TIMEOUT:
+            # too long not alive, kill myself
+            log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
+                    "thread is dead, kill myself.")
+            before_exit()
         try:
             data = pickle.loads(self.request.recv(1024).strip())
             reply = commands[data["command"]](data)
@@ -309,7 +312,13 @@ class MyUDPServer(SocketServer.ThreadingUDPServer):
 
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
     def handle(self):
-        global last_ping, my_port, members, coordinator, my_id
+        global last_ping, my_port, members, coordinator, my_id, is_alive,\
+                COORDINATOR_TIMEOUT
+        if time.time() > is_alive + COORDINATOR_TIMEOUT:
+            # too long not alive, kill myself
+            log_exception("DEAD in MyUDPServerHandler.handle", "Assume main" + \
+                    "thread is dead, kill myself.")
+            before_exit()
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
@@ -425,13 +434,45 @@ def before_exit():
     leave()
     sys.exit(0)
 
+# Main Thread
+def main_thread_body():
+    global last_latency_measurement, LATENCY_MEASURMENT, COORDINATOR_TIMEOUT,\
+            is_alive, is_coordinator, last_ping
+    try:
+        while (True):
+            is_alive = time.time()
+            try:
+                if time.time() > last_latency_measurement + LATENCY_MEASURMENT:
+                    measure_latency()
+                    last_latency_measurement = time.time()
+                if is_coordinator:
+                    heartbeat()
+                    time.sleep(HEARTBEAT)
+                if not is_coordinator:
+                    if time.time() > last_ping + COORDINATOR_TIMEOUT:
+                        log_exception("WARNING in main", "Coordinator has died")
+                        try:
+                            join(coordinator)
+                        except socket.error, e:
+                            log_exception("EXCEPTION in main_thread_body, member", e)
+                            reelect_coordinator()
+                            heartbeat()
+                time.sleep(1)
+            except Exception, e:
+                log_exception("EXCEPTION in main_thread_body", e)
+    except (KeyboardInterrupt, Exception), e:
+        print e
+        before_exit()
+
+
+
 # main function, initialize overlay node                
 
 def main(argv):
     global my_ip, my_port, seeds, last_ping, last_latency_measurement,\
             SOCKET_TIMEOUT, HEARTBEAT, LATENCY_MEASURMENT, \
             LATENCY_TRANSMIT, COORDINATOR_TIMEOUT, \
-            pingServer, tcpServer
+            pingServer, tcpServer, is_alive
     atexit.register(before_exit)
     socket.setdefaulttimeout(SOCKET_TIMEOUT)
     try:
@@ -450,6 +491,7 @@ def main(argv):
         else:
             print('overlay.py -ip <node ip>')
             sys.exit(2)
+    is_alive = time.time()
     # delete previous log files
     log_status("* Start-up node")
     my_ip = socket.gethostbyname(socket.gethostname())
@@ -466,6 +508,7 @@ def main(argv):
     # read seeds (list of other possible nodes in the overlay network)
     f = open("seeds.txt", "r")
     seeds = pickle.loads(f.read())
+    print(seeds)
     f.close()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
@@ -473,27 +516,8 @@ def main(argv):
     tcpThread = threading.Thread(target=tcpServer.serve_forever)
     tcpThread.daemon = True
     tcpThread.start()
-    try:
-        while (True):
-            if time.time() > last_latency_measurement + LATENCY_MEASURMENT:
-                measure_latency()
-                last_latency_measurement = time.time()
-            if is_coordinator:
-                heartbeat()
-                time.sleep(HEARTBEAT)
-            if not is_coordinator:
-                if time.time() > last_ping + COORDINATOR_TIMEOUT:
-                    log_exception("WARNING in main", "Coordinator has died")
-                    try:
-                        join(coordinator)
-                    except socket.error, e:
-                        log_exception("EXCEPTION in main", e)
-                        reelect_coordinator()
-                        heartbeat()
-                time.sleep(1)
-    except (KeyboardInterrupt, Exception), e:
-        print e
-        before_exit()
+    main_thread_body()
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
