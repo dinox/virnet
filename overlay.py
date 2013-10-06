@@ -423,14 +423,9 @@ def log_exception(info, exception):
 def before_exit():
     global pingServer, tcpServer
     # Shutdown servers and exit
-    try:
-        pingServer.shutdown()
-    except:
-        pass
-    try:
-        tcpServer.shutdown()
-    except:
-        pass
+    # --- Commented out since it don't work with python 2.5
+    # pingServer.shutdown()
+    # tcpServer.shutdown()
     leave()
     sys.exit(0)
 
