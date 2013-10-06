@@ -27,7 +27,7 @@ set key font ",8"
 set xlabel "Time in minutes"
 set ylabel "Latency in msec"
 set terminal pdf size 10,5
-set output "latency_timeline.pdf"
+set output "out.pdf"
 
 # standard plot
 plot "tmp.dat" using ($1):($2) title 'latency' with lines ls 1,\
