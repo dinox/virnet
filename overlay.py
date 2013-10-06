@@ -304,10 +304,18 @@ def reelect_coordinator():
 
 def send_message(ip, port, message):
     # Sends a message over tcp sockets and returns the reply
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((ip, port))
-    s.send(pickle.dumps(message))
-    return pickle.loads(s.recv(1024))
+    global DEBUG_MODE
+    ret = ''
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((ip, port))
+        s.send(pickle.dumps(message))
+        ret = pickle.loads(s.recv(1024))
+    except Exception, e:
+        print e
+        if DEBUG_MODE:
+            traceback.print_exec()
+    return ret
 
 def send_node_message(node, message):
     # Here node is a dict of type {"ip" : "x.x.x.x", "port" : 1234} 
