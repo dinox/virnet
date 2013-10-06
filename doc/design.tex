@@ -46,7 +46,7 @@
 \numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
 \numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
 
-\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+%\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
 
 %----------------------------------------------------------------------------------------
 %	TITLE SECTION
@@ -82,13 +82,13 @@
 
 The overlay network contains two kind of nodes, a coordinator node that organizes the network and member nodes. Each node can play both roles, however there can only be one coordinator node at any given time.
 
-\paragraph{Maintenance channel.}
+\paragraph{Maintenance channel}
 
-A node is characterized by its network address (ip and port) as well as it's id that was assigned by the coordinator. To maintain the network, the coordinator sends and receives TCP messages like join request or members list updates. Therefore, each node has a TCP socket where it listens for incoming TCP request. The TCP socket is configured with the network address of the corresponding node and will run in a separate thread. This is called the \textit{maintenance channel}. 
+A node is characterized by its network address (ip and port) as well as it's id that was assigned by the coordinator. To maintain the network, the coordinator sends and receives TCP messages like join request or member's list updates. Therefore each node has a TCP socket where it listens for incoming TCP requests. The TCP socket is configured with the network address of the corresponding node and will run in a separate thread. This is called the \textit{maintenance channel}. 
 
-\paragraph{Ping channel.}
+\paragraph{Ping channel}
 
-Additionally, there is the \textit{ping channel} to check the status of the connection to another node. This channel is based on the UDP protocol, every node listens for incoming ping request and responds to them. These channel cannot run on the same network address, so the port number is increase by one in the \textit{ping channel}. The listener socket is also executed in a separate thread to ensure fast responses to ping requests.
+Additionally, there is the \textit{ping channel} to check the status of the connection to another node. This channel is based on the UDP protocol, every node listens for incoming ping request and responds to them. These channel cannot run on the same network port, so the port number is increase by one in the \textit{ping channel}. The listener socket is also executed in a separate thread to ensure fast responses to ping requests.
 
 \paragraph{Main function}
 The overall design builds on three parallel parts, the handling of the maintenance channel, the ping channel and thirdly the main function. The main function contains code for both coordinator and member and is executed periodically. It contains the \textit{heartbeat} function of the coordinator to check the liveness of the members, the check of the members if the coordinator is still alive and the measurement of the latency between the nodes of the network.
@@ -97,27 +97,29 @@ The overall design builds on three parallel parts, the handling of the maintenan
 
 \subsection{Bootstrap}
 
-At start-up time a node is neither the coordinator nor a member. After initializing variables and log files, the node will first start the UDP socket The new participant will first try to connect to a existing network, if this fails he will start it's own overlay network. However, a node has to have an initial list of possible members of the overlay network to detect if there is already an established network. Therefore, each node requires a file (\textit{seeds.txt}) to exist in the current working directory. 
+At start-up time a node is neither the coordinator nor a member. After initializing variables and log files, the node will first start the UDP socket. The new participant will first try to connect to a existing network, if this fails it will start its own overlay network. However, a node has to have an initial list of possible members of the overlay network to detect if there is already an established network. Therefore, each node requires a file (\textit{seeds.txt}) to exist in the current working directory. The seeds file is saved in the python serialization format \textit{pickle}.
 
-The new node sends a join request on the \textit{maintenance channel} to the first network address in the file. If there exist a node with this address and it happens to be the coordinator of the network, the new node is added as a member and gets the coordinator id and the list of members in network. If the node that receives the message happens to be a member of the network, it returns the address of coordinator. The new node can then immediately send a join request to the coordinator.
+The new node sends a join request on the \textit{maintenance channel} to the first network address in the file. If there exist a node with this address and it happens to be the coordinator of the network, the new node is added as a member and receives the coordinator id and the list of members in network from the coordinator. If the node that receives the message happens to be a member of the network, it returns the address of coordinator. The new node can then immediately send a join request to the coordinator.
 
-Failing this, the new node tries the next address in the list. If all requests fail and therefore it cannot join a network, the node selects itself as coordinator with id zero.
+If this fails, the new node tries the next address in the list. If all requests fail and therefore it cannot join a network, the node selects itself as coordinator with id zero.
 
 As last step of the bootstrap phase the node starts listening on the \textit{maintenance channel}, either as coordinator or as member.
 
 \subsection{Coordinator}
 
-The coordinator has two main functionalities, he pings periodically all members to check their liveness and he listens for messages on the \textit{maintenance channel} like a join request. 
+The coordinator has two main functionalities; he periodically pings all members to check their liveness and he listens for messages on the \textit{maintenance channel}, for example a join request.
 
 \subsubsection{Heartbeat}
 The heartbeat function implements the periodically ping requests.
 If a node doesn't responds twice in a row, it is treated as dead. The coordinator removes this node from the members list, logs a FAIL event and distributes the updated members list to all members of the overlay network. Additionally, the coordinator tries to send a message (\textit{kicked out}) to the failing node.
 
+The reason for a \textit{kicked out} message is that it is sent over TCP, whereas pings are sent over UDP, and this message is therefore more likely to be correctly received. The node can then try to rejoin the network.
+
 \subsubsection{Join request}
-A join request can be sent to any member of the network and reply depends on the status of receiving node. If the node is a member he replies with a \textit{coordinator\_info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current memberlist and coordinator details.
+A join request can be sent to any member of the network and the reply depends on the status of the receiving node. If the node is a member he replies with a \textit{coordinator info} command which gives IP and port of the current coordinator. The join request is then sent to the coordinator which replies with the joining node's ID, the current member's list and coordinator details.
 
 \subsubsection{Leave request}
-A leave request is sent to the coordinator when a member wants to leave the network and is processed by the coordinator as a delete of the node from the member's list and broadcast of the new member's list to all members.
+A leave request is sent to the coordinator when a member wants to leave the network and is processed by the coordinator as a delete of the node from the member's list and broadcast of the new member's list to all members. The leave is also logged in the log file.
 
 
 %------------------------------------------------
@@ -151,18 +153,18 @@ The nodes keep track of when the last ping from the coordinator was received, an
 
 Every thirty seconds each node calculates the latency to every other node in the network. This is implemented in the \textit{measure\_latency} function by sending a ping message on the \textit{ping channel} to another node. Using this latency, the new average latency is calculated and both values are logged to the \textit{latency.log} file. Every minute, the nodes sends array of average latencies to the coordinator. The node logs an exception if a ping in the latency measurement fails, so this will not affect the average latency.
 
-The coordinator does exactly the same, he also uses the \textit{maintenance channel} to send the average latencies to himself every minute. The average latencies that are sent to the coordinator are loggend to the \textit{pings.log} file. This file is only created at the coordinator node.
+The coordinator does exactly the same, he also uses the \textit{maintenance channel} to send the average latencies to himself every minute. The average latencies that are sent to the coordinator are logged to the \textit{pings.log} file. This file is only created at the coordinator node.
 
 \subsection{A longer trace}
 
 The log files for the longer trace were produced on Sunday, between 4 p.m. and 6 p.m. The three participants of the overlay networks are \textit{righthand.eecs.harvard.edu}, a node from the Harvard University as the American node, \textit{planetlab1.inf.ethz.ch}, a node from ETHZ as the European node and \textit{pln.zju.edu.cn}, a node form the Zhejian University as the Asian node.
 
-\begin{figure*}[th]
+\begin{figure*}[h!]
 \includegraphics[width=\columnwidth]{latency_harvard_ethz.pdf}
 \caption{Latency from Harvard to ETHZ}
 \end{figure*}
 
-\begin{figure*}[th]
+\begin{figure*}[h!]
 \includegraphics[width=\columnwidth]{latency_harvard_zhejiang.pdf}
 \caption{Latency from Harvard to Zhejiang}
 \end{figure*}
