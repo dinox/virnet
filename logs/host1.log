@@ -1,0 +1,48 @@
+* Start-up node
+2013/10/06 21:41:36:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1]
+ 2013/10/06 21:41:42:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1]
+ 2013/10/06 21:41:43:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2]
+ 2013/10/06 21:41:48:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2]
+ 2013/10/06 21:41:52:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:41:54:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:42:00:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:42:04:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:06:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:12:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:18:
+    [COORDINATOR]: node0
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ * Select myself as new coordinator
+2013/10/06 21:42:49:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 2013/10/06 21:42:50:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 2013/10/06 21:42:53:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 2013/10/06 21:42:56:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 2013/10/06 21:43:02:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 2013/10/06 21:43:08:
+    [MEMBERS]: [node1, node2, node3, node4]
+ 

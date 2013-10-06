@@ -1,0 +1,35 @@
+* Start-up node
+* I am now coordinator
+2013/10/06 21:41:24:
+    [MEMBERS]: [node0]
+ 2013/10/06 21:41:30:
+    [MEMBERS]: [node0]
+ 2013/10/06 21:41:33:
+    [EVENT JOIN]: node1
+    [MEMBERS]: [node0, node1]
+ 2013/10/06 21:41:36:
+    [MEMBERS]: [node0, node1]
+ 2013/10/06 21:41:42:
+    [MEMBERS]: [node0, node1]
+ 2013/10/06 21:41:43:
+    [EVENT JOIN]: node2
+    [MEMBERS]: [node0, node1, node2]
+ 2013/10/06 21:41:48:
+    [MEMBERS]: [node0, node1, node2]
+ 2013/10/06 21:41:52:
+    [EVENT JOIN]: node3
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:41:54:
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:42:00:
+    [MEMBERS]: [node0, node1, node2, node3]
+ 2013/10/06 21:42:04:
+    [EVENT JOIN]: node4
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:06:
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:12:
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 2013/10/06 21:42:18:
+    [MEMBERS]: [node0, node1, node2, node3, node4]
+ 
