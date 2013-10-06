@@ -452,8 +452,8 @@ def main(argv):
     f.close()
     # connect to the overlay and listen for TCP messages (overlay communication messages)
     connect_to_network()
-    server = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
-    threading.Thread(target=server.serve_forever).start()
+    tcpServer = MyTCPServer(('0.0.0.0', my_port), MyTCPServerHandler)
+    threading.Thread(target=tcpServer.serve_forever).start()
     try:
         while (True):
             if time.time() > last_latency_measurement + LATENCY_MEASURMENT:
@@ -477,7 +477,7 @@ def main(argv):
         # Shutdown servers and exit
         pingServer.shutdown()
         leave()
-        server.shutdown()
+        tcpServer.shutdown()
         os._exit(0)
 
 if __name__ == "__main__":
