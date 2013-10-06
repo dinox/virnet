@@ -79,6 +79,9 @@ def leave_command(data):
     removeMember(data["id"], "LEAVE")
     return {"command" : "ok"}
 
+# This is the list of network commands which the TCP server accepts. The
+# dictionary is of type {string : function}. For example gives command["join"] a
+# function pointer to the join function.
 commands = {"join" : join_command,
             "ping"      : ping_command,
             "memberlist_update" : memberlist_update_command,
@@ -91,10 +94,14 @@ commands = {"join" : join_command,
 def addMember(nodeAddress):
     global next_id
     try:
+        # Add the new member
         members[next_id] = nodeAddress
+        # Log the join event
         log_event(next_id, "JOIN")
         next_id += 1
+        # Propagate the new member's list
         send_new_memberlist()
+        # Return the id of the new member
         return next_id - 1
     except Exception, e:
         log_exception("EXCEPTION in addMember (failed)", e)
@@ -105,24 +112,35 @@ def removeMember(nodeID, event):
     global members
     if event == "FAIL":
         try:
+            # Send kicked_out message to member
             send_node_message(members[nodeID], {"command" : "kicked_out", \
                 "coordinator" : coordinator})
         except socket.error, e:
             log_exception("WARNING in removeMember", e)
+    # Delete member from member's list
     del members[nodeID]
+    # Log event
     log_event(nodeID, event)
+    # Propagate new member's list
     send_new_memberlist()
 
 def ping(host, port, host_id):
     global my_id
     try:
+        # Create a new socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(5)
+        # Send this nodes id as a UDP message
         data = str(my_id)
+        # Start timer
         begin = time.time()
+        # Send message to node
         sock.sendto(data.encode(), (host, port+1))
+        # Receive reply
         received = sock.recv(1024).decode()
+        # Stop timer
         end = time.time()
+        # Check that reply was from correct host. Host should reply with its id.
         if str(received) == str(host_id):
             return end-begin
         else:
@@ -136,22 +154,37 @@ def ping(host, port, host_id):
 def join(node):
     global coordinator, is_coordinator, members, my_id, my_ip, \
         my_port, last_ping, seeds, next_id
+    # This is the join message. It is then processed in the join function of
+    # the receiving server.
     bootstrap_message = {"command"  : "join", "address" : 
                          {"ip" : my_ip, "port" : my_port}}
+    # Store reply in result variable.
     result = send_message(node["ip"], node["port"], bootstrap_message)
+    # This means the node was a member of the overlay network. We then need to
+    # send a new message to the coordinator given by the member.
     if result["command"] == "coordinator_info":
+        # Set coordinator according to the members reply.
         coordinator = result["coordinator"]
+        # Send join request to coordinator.
         result = send_message(coordinator["ip"], coordinator["port"], 
                               bootstrap_message)
         log_status("* Connected to overlay network, id=" +\
                 str(result["your_id"]))
+    # Store all the information given by the coordinator.
     coordinator = result["coordinator"]
     members = result["members"]
+    # This is the ID which every member have. It is given by the coordinator as
+    # response to a join request and it is unique for every member. The member
+    # with the lowest ID is the oldest member, and the oldest member is always
+    # the coordinator.
     my_id = result["your_id"]
+    # Set the variable last_ping which keeps track of when we last heard from
+    # the coordinator to current time.
     last_ping = time.time()
 
 def leave():
     global coordinator, is_coordinator
+    # The coordinator never send a leave request to the network.
     if not is_coordinator:
         try:
             message = {"command" : "leave", "id" : my_id }
@@ -162,11 +195,14 @@ def leave():
 # Heartbeat function (check if all members are alive)
 def heartbeat():
     global pings, members, is_coordinator
+    # Create a copy of members dict since another thread may change it.
     for nodeID, node in copy.deepcopy(members).items():
+        # Dont ping yourself
         if nodeID == my_id:
             continue
         successful = False
         count = 0
+        # Try to ping every node two times.
         while not successful and count < 2:
             time = ping(node["ip"], node["port"], nodeID)
             if time > 0:
@@ -176,9 +212,12 @@ def heartbeat():
             else:
                 count = count + 1
                 print("Ping failed")
+        # Remove member who doesn't reply to pings.
         if not successful:
             removeMember(nodeID, "FAIL")
+    # Propagate new member's list
     send_new_memberlist()
+    # Log the current members
     log_membership()
 
 # Measure latency
