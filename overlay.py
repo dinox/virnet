@@ -61,6 +61,8 @@ def memberlist_update_command(data):
             send_new_memberlist()
             is_coordinator = False
         coordinator = c
+        # Try to join new network in main function 
+        last_ping = 0
     return {"command" : "ok"}
 
 def latency_data_command(data):
