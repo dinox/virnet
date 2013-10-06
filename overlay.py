@@ -3,7 +3,7 @@ import SocketServer, socket, getopt, sys, threading, time, os, \
         copy, pickle
 
 # global settings
-SOCKET_TIMEOUT = 1
+SOCKET_TIMEOUT = 3
 LATENCY_MEASURMENT = 30
 LATENCY_TRANSMIT = 60
 HEARTBEAT = 5
@@ -54,6 +54,13 @@ def memberlist_update_command(data):
     if c["id"] == coordinator["id"]:
         members = data["members"]
         log_membership()
+    # if network is larger than ours, join them instead
+    elif len(data["members"]) > len(members):
+        members = data["members"]
+        if is_coordinator:
+            send_new_memberlist()
+            is_coordinator = False
+        coordinator = c
     return {"command" : "ok"}
 
 def latency_data_command(data):
@@ -370,6 +377,7 @@ def log_members(filename):
     f.write(msg + "\n ")
     print(msg)
     f.close()
+    log_exception("INFO", "My id: node" + str(my_id))
 
 def log_latency(nodeID, new_latency):
     global pings, my_id, LATENCY_FILE
