@@ -306,6 +306,7 @@ class MyUDPServer(SocketServer.ThreadingUDPServer):
     allow_reuse_address = True
 
 class MyUDPServerHandler(SocketServer.BaseRequestHandler):
+    global my_id
     def handle(self):
         global last_ping, my_port, members, coordinator
         try:
