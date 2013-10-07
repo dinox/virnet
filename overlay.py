@@ -381,7 +381,7 @@ class MyTCPServerHandler(SocketServer.BaseRequestHandler):
             # too long not alive, kill myself
             log_exception("DEAD in MyTCPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
-            sys_exit()
+            sys.exit()
         try:
             # Deserialize received data
             data = pickle.loads(self.request.recv(1024).strip())
@@ -409,7 +409,7 @@ class MyUDPServerHandler(SocketServer.BaseRequestHandler):
             # too long not alive, kill myself
             log_exception("DEAD in MyUDPServerHandler.handle", "Assume main" + \
                     "thread is dead, kill myself.")
-            sys_exit()
+            sys.exit()
         try:
             data = self.request[0].decode().strip()
             socket = self.request[1]
