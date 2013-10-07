@@ -1,5 +1,5 @@
-planetlab3.inf.ethz.ch
-righthand.eecs.harvard.edu
-pln.zju.edu.cn
+planetlab3.inf.ethz.ch:13337
+righthand.eecs.harvard.edu:13337
+pln.zju.edu.cn:13337
 127.0.0.1:13337
 127.0.0.1:13347

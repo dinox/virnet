@@ -166,6 +166,8 @@ def join(node):
     bootstrap_message = {"command"  : "join", "address" : 
                          {"ip" : my_ip, "port" : my_port}}
     # Store reply in result variable.
+    log_status("* Try to connected to overlay network, address="+node["ip"] +\
+            ":" + str(node["port"]))
     result = send_message(node["ip"], node["port"], bootstrap_message)
     # This means the node was a member of the overlay network. We then need to
     # send a new message to the coordinator given by the member.
@@ -312,7 +314,7 @@ def send_message(ip, port, message):
         s.send(pickle.dumps(message))
         ret = pickle.loads(s.recv(1024))
     except Exception, e:
-        print e
+        log_exception("EXCEPTION in send_message", e)
         if DEBUG_MODE:
             traceback.print_exc()
     return ret
@@ -511,7 +513,7 @@ def log_exception(info, exception):
     f = open(EXCEPTION_FILE, "a")
     msg = time.strftime("%Y/%m/%d %H:%M:%S") + ": " + info + "\n"
     msg = msg + "    " + str(exception)
-    print(msg)
+    #print(msg)
     f.write(msg + "\n")
     f.close()
 
