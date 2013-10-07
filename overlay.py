@@ -519,10 +519,7 @@ def log_exception(info, exception):
 
 def before_exit():
     global pingServer, tcpServer, is_alive
-    # Shutdown servers and exit
-    # --- Commented out since it don't work with python 2.5
-    # pingServer.shutdown()
-    # tcpServer.shutdown()
+    log_status("* Exit")
     leave()
     is_alive = -1000
     sys.exit(0)
@@ -563,6 +560,7 @@ def main_thread_body():
         # Print the unexpected exception and exit
         if DEBUG_MODE:
             traceback.print_exc()
+        sys.exit(0)
 
 def read_nodes_from_file():
     # Load the seeds file
